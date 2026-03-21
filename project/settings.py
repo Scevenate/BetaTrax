@@ -37,7 +37,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'BetaTrax',
 ]
+
+AUTH_USER_MODEL = 'BetaTrax.Employee'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

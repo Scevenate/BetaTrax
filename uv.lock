@@ -22,9 +22,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [{ name = "django", specifier = ">=6.0.3" }]
 
-[package.metadata.requires-dev]
-dev = []
-
 [[package]]
 name = "django"
 version = "6.0.3"

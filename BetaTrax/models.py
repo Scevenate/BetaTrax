@@ -26,12 +26,12 @@ class Employee(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
-    role = models.CharField(max_length=20, choices=EmployeeRole, null=True) # Not strictly required
+    role = models.CharField(max_length=20, choices=EmployeeRole)
     product = models.ForeignKey("Product", on_delete=models.SET_NULL, null=True) # Not strictly required
     objects = EmployeeManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = ['role']
 
     def __str__(self):
         return self.email
@@ -58,26 +58,30 @@ class ReportStatus(models.TextChoices):
     REOPENED = "REOPENED" # MAY BE REASSIGNED
     RESOLVED = "RESOLVED" # DEAD STATE
 
-class ReportSeverity(models.TextChoices):
-    CRITICAL = "CRITICAL"
-    MAJOR = "MAJOR"
-    MINOR = "MINOR"
-    LOW = "LOW"
+class ReportSeverity(models.IntegerChoices):
+    CRITICAL = 3
+    MAJOR = 2
+    MINOR = 1
+    LOW = 0
 
-class ReportPriority(models.TextChoices):
-    CRITICAL = "CRITICAL"
-    HIGH = "HIGH"
-    MEDIUM = "MEDIUM"
-    LOW = "LOW"
+class ReportPriority(models.IntegerChoices):
+    CRITICAL = 3
+    HIGH = 2
+    MEDIUM = 1
+    LOW = 0
 
 class Report(models.Model):
     id = models.AutoField(primary_key=True)
     status = models.CharField(max_length=20, choices=ReportStatus)
-    severity = models.CharField(max_length=20, choices=ReportSeverity, null=True) # Null iff status = "NEW"
-    priority = models.CharField(max_length=20, choices=ReportPriority, null=True) # Null iff status = "NEW"
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    severity = models.IntegerField(choices=ReportSeverity, null=True) # Null iff status = "NEW"
+    priority = models.IntegerField(choices=ReportPriority, null=True) # Null iff status = "NEW"
     duplicate_of = models.ForeignKey("self", on_delete=models.CASCADE, null=True) # Null iff status != "DUPLICATE"
     title = models.CharField(max_length=50)
     description = models.TextField()
+    reproduce_steps = models.TextField()
+    product = models.ForeignKey("Product", on_delete=models.CASCADE)
     tester_email = models.EmailField(null=True) # Set on creation, might be null
     assigned_to = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True) # Null iff have not reached "ASSIGNED" or employee is deleted
 

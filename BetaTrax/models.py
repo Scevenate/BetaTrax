@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from enum import Enum
 
 class EmployeeManager(BaseUserManager):
     def create_user(self, email, password, **extra_fields):
@@ -27,11 +28,11 @@ class Employee(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     role = models.CharField(max_length=20, choices=EmployeeRole)
-    product = models.ForeignKey("Product", on_delete=models.SET_NULL, null=True) # Not strictly required
+    product = models.ForeignKey("Product", on_delete=models.RESTRICT)
     objects = EmployeeManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['role']
+    REQUIRED_FIELDS = ['role', 'product']
 
     def __str__(self):
         return self.email
@@ -46,17 +47,32 @@ class Product(models.Model):
 class ReportStatus(models.TextChoices):
     NEW = "NEW"
     # NEW TO:
-    OPEN = "OPEN"
+    OPENED = "OPENED"
     REJECTED = "REJECTED" #DEAD STATE
-    DUPLICATE = "DUPLICATE" # DEAD STATE
-    # OPEN TO:
+    DUPLICATED = "DUPLICATED" # DEAD STATE
+    # OPENED / REOPENED TO:
     ASSIGNED = "ASSIGNED"
     # ASSIGNED TO:
     FIXED = "FIXED"
-    CANNOT_REPRODUCE = "CANNOT_REPRODUCE" # DEAD STATE
+    COULDNT_REPRODUCE = "COULDNT_REPRODUCE" # DEAD STATE
     # FIXED TO:
     REOPENED = "REOPENED" # MAY BE REASSIGNED
     RESOLVED = "RESOLVED" # DEAD STATE
+
+class ReportAction(Enum):
+    # FIX and CANNOT_REPRODUCE are dev actions. Rest are product owner actions.
+    # FROM NEW:
+    OPEN = "OPEN" # TO OPENED
+    REJECT = "REJECT" # TO REJECTED
+    DUPLICATE = "DUPLICATE" # TO DUPLICATED
+    # FROM OPENED / REOPENED:
+    ASSIGN = "ASSIGN" # TO ASSIGNED
+    # FROM ASSIGNED:
+    FIX = "FIX" # TO FIXED
+    CANNOT_REPRODUCE = "CANNOT_REPRODUCE" # TO COULDNT_REPRODUCE
+    # FROM FIXED:
+    REOPEN = "REOPEN" # TO REOPENED
+    RESOLVE = "RESOLVE" # TO RESOLVED
 
 class ReportSeverity(models.IntegerChoices):
     CRITICAL = 3
@@ -82,8 +98,10 @@ class Report(models.Model):
     description = models.TextField()
     reproduce_steps = models.TextField()
     product = models.ForeignKey("Product", on_delete=models.CASCADE)
+    version = models.CharField(max_length=20, null=True)
+    tester_id = models.CharField(max_length=20)
     tester_email = models.EmailField(null=True) # Set on creation, might be null
-    assigned_to = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True) # Null iff have not reached "ASSIGNED" or employee is deleted
+    assigned_to = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True) # Null iff not "ASSIGNED" / employee deleted
 
     def __str__(self):
         return f"{self.id:04d} | {self.status} : {self.title}"

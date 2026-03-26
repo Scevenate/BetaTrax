@@ -20,7 +20,7 @@ class TestView(TestCase):
             email='test@test.com',
             password='testpassword',
             role='PRODUCT_OWNER',
-            product=self.product,
+            product=self.product.id,
         )
         reports = [{
             'title': 'Report 1',

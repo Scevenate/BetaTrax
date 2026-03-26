@@ -16,7 +16,7 @@ class TestComment(TestCase):
             email='test@test.com',
             password='testpassword',
             role='PRODUCT_OWNER',
-            product=self.product,
+            product=self.product.id,
         )
         self.report = Report.objects.create(
             title='Report 1',

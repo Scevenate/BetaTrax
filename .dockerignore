@@ -1,0 +1,15 @@
+.cursor/
+.git/
+.ruff_cache/
+.venv/
+tests/
+data/
+__pycache__/
+
+.DS_Store
+.gitignore
+.dockerignore
+db.sqlite3
+Dockerfile
+docker-compose.yml
+README.md

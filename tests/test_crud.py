@@ -8,13 +8,13 @@ class TestCrud(TestCase):
             email='owner@icecream.com',
             password='ownerpassword',
             role='PRODUCT_OWNER',
-            product=self.product,
+            product=self.product.id,
         )
         self.developer = Employee.objects.create_user(
             email='developer@icecream.com',
             password='developerpassword',
             role='DEVELOPER',
-            product=self.product,
+            product=self.product.id,
         )
         reports = [{
             'title': 'Report 1',

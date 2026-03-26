@@ -111,6 +111,7 @@ class Comment(models.Model):
     report = models.ForeignKey("Report", on_delete=models.CASCADE)
     employee = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True) # Null iff employee is deleted
     content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         if self.employee is None:

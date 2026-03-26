@@ -1,15 +1,38 @@
 from django.http import HttpRequest, HttpResponse, HttpResponseServerError, JsonResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseNotFound
-from .models import Product, Report, EmployeeRole, ReportStatus, ReportAction, ReportSeverity, ReportPriority, Employee
+from .models import Product, Report, EmployeeRole, ReportStatus, ReportAction, ReportSeverity, ReportPriority, Employee, Comment
 from django.contrib.auth import authenticate, login, logout
 from django.core.paginator import Paginator, EmptyPage
 from django.forms.models import model_to_dict
 from django.views import View
 from django.core.exceptions import ValidationError
-from .email import notify_tester
+from .email import notify_tester_status
 import json
+from functools import wraps
 
 def index(request: HttpRequest):
     return HttpResponse("<h1>Server is up</h1>")
+
+def get_report(request: HttpRequest, id: int):
+    report = Report.objects.filter(product=request.user.product)
+    if request.user.role == EmployeeRole.PRODUCT_OWNER:
+        pass
+    elif request.user.role == EmployeeRole.DEVELOPER:
+        report = report.filter(assigned_to=request.user)
+    else:
+        return HttpResponseServerError("Role not supported")
+    try:
+        report = report.get(id=id)
+    except Report.DoesNotExist:
+        return HttpResponseNotFound()
+    return report
+
+def logged_in_check(func):
+    @wraps(func)
+    def wrapper(self, request: HttpRequest, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return HttpResponseForbidden()
+        return func(self, request, *args, **kwargs)
+    return wrapper
 
 class LoginView(View):
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -30,9 +53,8 @@ class LogoutView(View):
         return HttpResponse()
 
 class ReportsView(View):
+    @logged_in_check
     def get(self, request: HttpRequest):
-        if not request.user.is_authenticated:
-            return HttpResponseForbidden()
         # Query parameters
         search = request.GET.get("search") # None is all
         sort_by = request.GET.get("sort", default="-updated_at")
@@ -94,37 +116,19 @@ class ReportsView(View):
         return HttpResponse(status=201)
 
 class ReportView(View):
+    @logged_in_check
     def get(self, request: HttpRequest, id: int):
-        if not request.user.is_authenticated:
-            return HttpResponseForbidden()
-        # Roles restriction
-        if request.user.role == EmployeeRole.PRODUCT_OWNER:
-            report = Report.objects.filter(product=request.user.product)
-        elif request.user.role == EmployeeRole.DEVELOPER:
-            report = Report.objects.filter(product=request.user.product, assigned_to=request.user)
-        else:
-            return HttpResponseServerError("Role not supported")
-        # Get report
-        try:
-            report = report.get(id=id)
-        except Report.DoesNotExist:
-            return HttpResponseNotFound()
+        report = get_report(request, id)
+        if isinstance(report, HttpResponse):
+            return report
         return JsonResponse(model_to_dict(report))
+
+    @logged_in_check
     def patch(self, request: HttpRequest, id: int):
-        if not request.user.is_authenticated:
-            return HttpResponseForbidden()
         # Get report
-        report = Report.objects.filter(product=request.user.product)
-        if request.user.role == EmployeeRole.PRODUCT_OWNER:
-            pass
-        elif request.user.role == EmployeeRole.DEVELOPER:
-            report = report.filter(assigned_to=request.user)
-        else:
-            return HttpResponseServerError("Role not supported")
-        try:
-            report = report.get(id=id)
-        except Report.DoesNotExist:
-            return HttpResponseNotFound()
+        report = get_report(request, id)
+        if isinstance(report, HttpResponse):
+            return report
         # Action validation
         request.PATCH = json.loads(request.body)
         action = request.PATCH.get("action")
@@ -155,14 +159,14 @@ class ReportView(View):
                 report.priority = priority
                 report.status = ReportStatus.OPENED
                 report.save()
-                notify_tester(report, action)
+                notify_tester_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.REJECT.value:
                 if report.status != ReportStatus.NEW:
                     return HttpResponseBadRequest("Action not allowed")
                 report.status = ReportStatus.REJECTED
                 report.save()
-                notify_tester(report, action)
+                notify_tester_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.DUPLICATE.value:
                 if report.status != ReportStatus.NEW:
@@ -177,7 +181,7 @@ class ReportView(View):
                 report.duplicate_of = duplicate_of
                 report.status = ReportStatus.DUPLICATED
                 report.save()
-                notify_tester(report, action)
+                notify_tester_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.ASSIGN.value:
                 if report.status != ReportStatus.OPENED and report.status != ReportStatus.REOPENED:
@@ -192,7 +196,7 @@ class ReportView(View):
                 report.assigned_to = assigned_to
                 report.status = ReportStatus.ASSIGNED
                 report.save()
-                notify_tester(report, action)
+                notify_tester_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.FIX.value:
                 if report.status != ReportStatus.ASSIGNED:
@@ -200,7 +204,7 @@ class ReportView(View):
                 report.assigned_to = None
                 report.status = ReportStatus.FIXED
                 report.save()
-                notify_tester(report, action)
+                notify_tester_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.CANNOT_REPRODUCE.value:
                 if report.status != ReportStatus.ASSIGNED:
@@ -208,7 +212,7 @@ class ReportView(View):
                 report.assigned_to = None
                 report.status = ReportStatus.COULDNT_REPRODUCE
                 report.save()
-                notify_tester(report, action)
+                notify_tester_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.REOPEN.value:
                 if report.status != ReportStatus.FIXED:
@@ -216,14 +220,38 @@ class ReportView(View):
                 report.assigned_to = None
                 report.status = ReportStatus.REOPENED
                 report.save()
-                notify_tester(report, action)
+                notify_tester_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.RESOLVE.value:
                 if report.status != ReportStatus.FIXED:
                     return HttpResponseBadRequest("Action not allowed")
                 report.status = ReportStatus.RESOLVED
                 report.save()
-                notify_tester(report, action)
+                notify_tester_status(report, report.status.value)
                 return HttpResponse()
             case _:
                 return HttpResponseBadRequest("Invalid action")
+
+class CommentsView(View):
+    @logged_in_check
+    def get(self, request: HttpRequest, id: int):
+        # Get report
+        report = get_report(request, id)
+        if isinstance(report, HttpResponse):
+            return report
+        # Get comments
+        return JsonResponse({"comments": list(Comment.objects.filter(report=report).order_by('-created_at').values('id', 'employee', 'content'))})
+    
+    @logged_in_check
+    def post(self, request: HttpRequest, id: int):
+        # Get report
+        report = get_report(request, id)
+        if isinstance(report, HttpResponse):
+            return report
+        # Create comment
+        content = request.POST.get("content")
+        if content is None:
+            return HttpResponseBadRequest("content is required")
+        comment = Comment(report=report, employee=request.user, content=content)
+        comment.save()
+        return HttpResponse(status=201)

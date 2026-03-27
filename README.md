@@ -95,6 +95,7 @@
   - `python manage.py test tests.test_crud`    : life-cycle transitions and permission checks.
   - `python manage.py test tests.test_view`    : filters, status querying, pagination, report details.
   - `python manage.py test tests.test_comment` : comment creation/listing behavior.
+
 (These confirm life-cycle transitions, role-based access, report filtering, and comment behavior.)
 
 ### Manual smoke tests

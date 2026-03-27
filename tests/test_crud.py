@@ -56,7 +56,6 @@ class TestCrud(TestCase):
         }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/1/', {
             'action': 'ASSIGN',
-            'assigned_to': self.developer.id,
         }, content_type='application/json').status_code, 403)
         self.assertEqual(self.client.post('/login/', {
             'email': self.developer.email,
@@ -73,16 +72,14 @@ class TestCrud(TestCase):
         }).status_code, 200)
         self.assertEqual(self.client.patch('/report/1/', {
             'action': 'ASSIGN',
-            'assigned_to': self.developer.id,
         }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/3/', {
             'action': 'ASSIGN',
-            'assigned_to': self.developer.id,
         }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/2/', {
             'action': 'DUPLICATE',
             'duplicate_of': 1,
-        }, content_type='application/json').status_code, 404)
+        }, content_type='application/json').status_code, 403)
         self.assertEqual(self.client.patch('/report/1/', {
             'action': 'FIX',
         }, content_type='application/json').status_code, 200)
@@ -103,5 +100,22 @@ class TestCrud(TestCase):
         }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/3/', {
             'action': 'RESOLVE',
+        }, content_type='application/json').status_code, 200)
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.developer.email,
+            'password': 'developerpassword',
+        }).status_code, 200)
+        self.assertEqual(self.client.patch('/report/1/', {
+            'action': 'FIX',
+        }, content_type='application/json').status_code, 400)
+        self.assertEqual(self.client.patch('/report/1/', {
+            'action': 'RESOLVE',
+        }, content_type='application/json').status_code, 400)
+        self.assertEqual(self.client.patch('/report/1/', {
+            'action': 'ASSIGN',
+        }, content_type='application/json').status_code, 200)
+        self.assertEqual(self.client.patch('/report/1/', {
+            'action': 'FIX',
         }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.post('/logout/').status_code, 200)

@@ -16,10 +16,16 @@ class TestView(TestCase):
         return True
     def test_product_owner_view(self):
         self.product = Product.objects.create(name='Test Product')
-        self.employee = Employee.objects.create_user(
-            email='test@test.com',
-            password='testpassword',
+        self.owner = Employee.objects.create_user(
+            email='owner@test.com',
+            password='ownerpassword',
             role='PRODUCT_OWNER',
+            product=self.product.id,
+        )
+        self.dev = Employee.objects.create_user(
+            email='dev@test.com',
+            password='devpassword',
+            role='DEVELOPER',
             product=self.product.id,
         )
         reports = [{
@@ -40,12 +46,30 @@ class TestView(TestCase):
         self.assertEqual(self.client.post('/report/', reports[1]).status_code, 201)
         self.assertEqual(self.client.get('/report/').status_code, 403)
         self.assertEqual(self.client.post('/login/', {
-            'email': self.employee.email,
+            'email': self.owner.email,
             'password': 'notpassword',
         }).status_code, 403)
         self.assertEqual(self.client.post('/login/', {
-            'email': self.employee.email,
-            'password': 'testpassword',
+            'email': self.owner.email,
+            'password': 'ownerpassword',
+        }).status_code, 200)
+        self.assertReportTitles(self.client.get('/report/').json(), list(reversed(reports)))
+        self.assertReportTitles(self.client.get('/report/?status=NEW').json(), list(reversed(reports)))
+        self.assertReportTitles(self.client.get('/report/?status=COULDNT_REPRODUCE&page=1&sort=-priority').json(), [])
+        self.assertReportTitles(self.client.get('/report/?search=Report 1').json(), [reports[0]])
+        self.assertEqual(self.client.get('/report/?status=OPEN&sort=UwU').status_code, 400)
+        self.assertEqual(self.client.get('/report/?status=KALTSIT&sort=-priority').status_code, 400)
+        self.assertEqual(self.client.get('/report/?page=p').status_code, 400)
+        self.assertEqual(self.client.get('/report/?page=2').status_code, 400)
+
+        self.assertEqual(self.client.get('/report/14/').status_code, 404)
+        self.assertReportTitle(self.client.get('/report/1/').json(), reports[0])
+        self.assertReportTitle(self.client.get('/report/2/').json(), reports[1])
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
+        self.assertEqual(self.client.get('/report/').status_code, 403)
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.dev.email,
+            'password': 'devpassword',
         }).status_code, 200)
         self.assertReportTitles(self.client.get('/report/').json(), list(reversed(reports)))
         self.assertReportTitles(self.client.get('/report/?status=NEW').json(), list(reversed(reports)))

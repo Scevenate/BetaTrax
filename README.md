@@ -88,11 +88,14 @@
 
 ## 4. Verification / Testing
 
-### Django tests
-- test modules:
-  - `tests/test_crud.py`: life-cycle transitions and permission checks.
-  - `tests/test_view.py`: product owner filters, status querying, pagination, report details.
-  - `tests/test_comment.py`: comment creation/listing behavior.
+### Django automated test
+- Run all tests:
+    - `python manage.py test tests`
+- For specific module:
+  - `python manage.py test tests.test_crud`    : life-cycle transitions and permission checks.
+  - `python manage.py test tests.test_view`    : filters, status querying, pagination, report details.
+  - `python manage.py test tests.test_comment` : comment creation/listing behavior.
+(These confirm life-cycle transitions, role-based access, report filtering, and comment behavior.)
 
 ### Manual smoke tests
 1. Create product/user via shell or admin.
@@ -196,7 +199,7 @@ print('Opened reports', list_resp.status_code, list_resp.json())
 
 assign_resp = dev_session.patch(
     f'{BASE_URL}/report/1/',
-    json={'action': 'ASSIGN', 'assigned_to': 2},
+    json={'action': 'ASSIGN'},
 )
 print('Assign report', assign_resp.status_code)
 
@@ -224,13 +227,3 @@ print('Resolve report', resolve_resp.status_code)
 list_resp = owner_session.get(f'{BASE_URL}/report/')
 print('All reports', list_resp.status_code, list_resp.json())
 ```
-
-### 4.2 Text examples
-- Run all tests:
-    - `python manage.py test tests`
-- For specific module:
-  - `python manage.py test tests.test_crud`
-  - `python manage.py test tests.test_view`
-  - `python manage.py test tests.test_comment`
-
-(These confirm life-cycle transitions, role-based access, report filtering, and comment behavior.)

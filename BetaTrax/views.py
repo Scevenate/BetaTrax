@@ -18,7 +18,8 @@ def get_report(request: HttpRequest, id: int):
     if request.user.role == EmployeeRole.PRODUCT_OWNER:
         pass
     elif request.user.role == EmployeeRole.DEVELOPER:
-        report = report.filter(Q(assigned_to=request.user) | Q(status=ReportStatus.OPENED) | Q(status=ReportStatus.REOPENED))
+        # report = report.filter(Q(assigned_to=request.user) | Q(status=ReportStatus.OPENED) | Q(status=ReportStatus.REOPENED))
+        pass
     else:
         return HttpResponseServerError("Role not supported")
     try:
@@ -88,7 +89,8 @@ class ReportsView(View):
 
         # Developer query
         elif request.user.role == EmployeeRole.DEVELOPER:
-            reports = Report.objects.filter(Q(assigned_to=request.user) | Q(status=ReportStatus.OPENED) | Q(status=ReportStatus.REOPENED), product=request.user.product)
+            # reports = Report.objects.filter(Q(assigned_to=request.user) | Q(status=ReportStatus.OPENED) | Q(status=ReportStatus.REOPENED), product=request.user.product)
+            reports = Report.objects.filter(product=request.user.product)
             if search:
                 reports = reports.filter(title__icontains=search)
             if status:
@@ -195,14 +197,7 @@ class ReportView(View):
                     return HttpResponseBadRequest("Action not allowed")
                 if request.user.role != EmployeeRole.DEVELOPER:
                     return HttpResponseForbidden()
-                assigned_to = request.PATCH.get("assigned_to")
-                if assigned_to is None:
-                    return HttpResponseBadRequest("assigned_to is required")
-                try:
-                    assigned_to = Employee.objects.get(id=assigned_to)
-                except Employee.DoesNotExist:
-                    return HttpResponseBadRequest("Invalid assigned_to")
-                report.assigned_to = assigned_to
+                report.assigned_to = request.user
                 report.status = ReportStatus.ASSIGNED
                 report.save()
                 notify_tester_status(report, report.status.value)

@@ -49,11 +49,11 @@
 - `OPEN`: on `NEW` -> sets `severity`, `priority`, status `OPENED`.
 - `REJECT`: on `NEW` -> status `REJECTED`.
 - `DUPLICATE`: on `NEW` -> sets `duplicate_of`, status `DUPLICATED`.
-- `ASSIGN`: on `OPENED`/`REOPENED` -> sets `assigned_to`, status `ASSIGNED`.
 - `REOPEN`: on `FIXED` -> status `REOPENED`.
 - `RESOLVE`: on `FIXED` -> status `RESOLVED`.
 
 ### Developer actions (via `PATCH /report/<id>/`)
+- `ASSIGN`: on `OPENED` / `REOPENED` -> clears `OPENED`/`REOPENED`, status `ASSIGNED`.
 - `FIX`: on `ASSIGNED` -> clears `assigned_to`, status `FIXED`.
 - `CANNOT_REPRODUCE`: on `ASSIGNED` -> clears `assigned_to`, status `COULDNT_REPRODUCE`.
 
@@ -74,7 +74,7 @@
 - `POST /logout/`.
 - All report and comment endpoints require logged-in users (403 otherwise), except report creation.
 
-## 3.1. Additional functions
+## 3.1 Additional functions
 - Report CRUD coverage in views:
   - `GET /report/` list (with search/paging/sort/status filters)
   - `GET /report/<id>/` detail
@@ -101,9 +101,16 @@
 4. Log in as developer and run developer actions (FIX/CANNOT_REPRODUCE).
 5. Confirm `GET /report/` results and `/report/<id>/comments/`.
 
-## 4.1. Examples Usage
 
-### Creating users (Product Owner and Developer)
+## 4.1 Example API usage (Python requests)
+Install requests: `pip install requests`
+
+Use the same host to run the server and store it as BASE_URL:
+```python
+BASE_URL = 'http://127.0.0.1:8000'
+```
+
+### 4.1.1 Creating users (Product Owner and Developer)
 1. Start Django shell:
    - `python manage.py shell`
 2. In shell:
@@ -128,7 +135,97 @@
    ```
 3. Exit shell with `exit()`.
 
-### Running tests
+### 4.1.2 Tester create report
+```python
+import requests
+
+resp = requests.post(
+    f'{BASE_URL}/report/',
+    data={
+        'title': 'Sample bug',
+        'description': 'App crashes on save',
+        'reproduce_steps': 'Open app, click Save, crash',
+        'product': 1,
+        'tester_id': 'tester1',
+        'tester_email': 'tester@example.com',
+    },
+)
+print('Create report', resp.status_code, resp.text)
+```
+
+### 4.1.3 Owner login
+```python
+owner_session = requests.Session()
+owner_resp = owner_session.post(
+    f'{BASE_URL}/login/',
+    data={'email': 'owner@example.com', 'password': 'ownerpassword'},
+)
+print('Owner login', owner_resp.status_code)
+```
+
+### 4.1.4 Fetch reports (owner)
+```python
+list_resp = owner_session.get(f'{BASE_URL}/report/?status=NEW')
+print('NEW reports', list_resp.status_code, list_resp.json())
+```
+
+### 4.1.5 Open report (owner action)
+```python
+open_resp = owner_session.patch(
+    f'{BASE_URL}/report/1/',
+    json={'action': 'OPEN', 'severity': 3, 'priority': 2},
+)
+print('Open report', open_resp.status_code)
+
+list_resp = owner_session.get(f'{BASE_URL}/report/?status=OPENED')
+print('Opened reports', list_resp.status_code, list_resp.json())
+```
+
+### 4.1.6 Developer login + assign + fix report
+```python
+dev_session = requests.Session()
+
+dev_login = dev_session.post(
+    f'{BASE_URL}/login/',
+    data={'email': 'developer@example.com', 'password': 'developerpassword'},
+)
+print('Developer login', dev_login.status_code)
+
+list_resp = dev_session.get(f'{BASE_URL}/report/?status=OPENED')
+print('Opened reports', list_resp.status_code, list_resp.json())
+
+assign_resp = dev_session.patch(
+    f'{BASE_URL}/report/1/',
+    json={'action': 'ASSIGN', 'assigned_to': 2},
+)
+print('Assign report', assign_resp.status_code)
+
+list_resp = dev_session.get(f'{BASE_URL}/report/?status=ASSIGNED')
+print('Assigned reports', list_resp.status_code, list_resp.json())
+
+fix_resp = dev_session.patch(
+    f'{BASE_URL}/report/1/',
+    json={'action': 'FIX'},
+)
+print('Fix report', fix_resp.status_code)
+
+list_resp = dev_session.get(f'{BASE_URL}/report/?status=FIXED')
+print('Fixed reports', list_resp.status_code, list_resp.json())
+```
+
+### 4.1.7 Resolve report (owner)
+```python
+resolve_resp = owner_session.patch(
+    f'{BASE_URL}/report/1/',
+    json={'action': 'RESOLVE'},
+)
+print('Resolve report', resolve_resp.status_code)
+
+list_resp = owner_session.get(f'{BASE_URL}/report/')
+print('All reports', list_resp.status_code, list_resp.json())
+```
+
+### 4.2 Text examples
 - Run all tests:
     - `python manage.py test tests`
 - For specific module:

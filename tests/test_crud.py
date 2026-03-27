@@ -45,21 +45,19 @@ class TestCrud(TestCase):
             'password': 'ownerpassword',
         }).status_code, 200)
         self.assertEqual(self.client.patch('/report/1/', {
-            'action': 'REJECT',
+            'action': 'OPEN',
+            'severity': 2,
+            'priority': 2,
         }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/3/', {
             'action': 'OPEN',
             'severity': 3,
             'priority': 0,
         }, content_type='application/json').status_code, 200)
-        self.assertEqual(self.client.patch('/report/3/', {
-            'action': 'ASSIGN',
-            'assigned_to': self.developer.id,
-        }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/1/', {
             'action': 'ASSIGN',
             'assigned_to': self.developer.id,
-        }, content_type='application/json').status_code, 400)
+        }, content_type='application/json').status_code, 403)
         self.assertEqual(self.client.post('/login/', {
             'email': self.developer.email,
             'password': 'developerpassword',
@@ -74,12 +72,20 @@ class TestCrud(TestCase):
             'password': 'developerpassword',
         }).status_code, 200)
         self.assertEqual(self.client.patch('/report/1/', {
-            'action': 'CANNOT_REPRODUCE',
-        }, content_type='application/json').status_code, 404)
+            'action': 'ASSIGN',
+            'assigned_to': self.developer.id,
+        }, content_type='application/json').status_code, 200)
+        self.assertEqual(self.client.patch('/report/3/', {
+            'action': 'ASSIGN',
+            'assigned_to': self.developer.id,
+        }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/2/', {
             'action': 'DUPLICATE',
             'duplicate_of': 1,
         }, content_type='application/json').status_code, 404)
+        self.assertEqual(self.client.patch('/report/1/', {
+            'action': 'FIX',
+        }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/3/', {
             'action': 'FIX',
         }, content_type='application/json').status_code, 200)
@@ -92,15 +98,8 @@ class TestCrud(TestCase):
             'action': 'DUPLICATE',
             'duplicate_of': 1,
         }, content_type='application/json').status_code, 200)
-        self.assertEqual(self.client.patch('/report/3/', {
+        self.assertEqual(self.client.patch('/report/1/', {
             'action': 'REOPEN',
-        }, content_type='application/json').status_code, 200)
-        self.assertEqual(self.client.patch('/report/3/', {
-            'action': 'ASSIGN',
-            'assigned_to': self.developer.id,
-        }, content_type='application/json').status_code, 200)
-        self.assertEqual(self.client.patch('/report/3/', {
-            'action': 'FIX',
         }, content_type='application/json').status_code, 200)
         self.assertEqual(self.client.patch('/report/3/', {
             'action': 'RESOLVE',

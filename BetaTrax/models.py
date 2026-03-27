@@ -61,7 +61,7 @@ class ReportStatus(models.TextChoices):
     RESOLVED = "RESOLVED" # DEAD STATE
 
 class ReportAction(Enum):
-    # FIX and CANNOT_REPRODUCE are dev actions. Rest are product owner actions.
+    # ASSIGN, FIX and CANNOT_REPRODUCE are dev actions. Rest are product owner actions.
     # FROM NEW:
     OPEN = "OPEN" # TO OPENED
     REJECT = "REJECT" # TO REJECTED

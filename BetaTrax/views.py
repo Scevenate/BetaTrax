@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from .email import notify_tester_status
 import json
 from functools import wraps
+from django.db.models import Q
 
 def index(request: HttpRequest):
     return HttpResponse("<h1>Server is up</h1>")
@@ -17,7 +18,7 @@ def get_report(request: HttpRequest, id: int):
     if request.user.role == EmployeeRole.PRODUCT_OWNER:
         pass
     elif request.user.role == EmployeeRole.DEVELOPER:
-        report = report.filter(assigned_to=request.user)
+        report = report.filter(Q(assigned_to=request.user) | Q(status=ReportStatus.OPENED) | Q(status=ReportStatus.REOPENED))
     else:
         return HttpResponseServerError("Role not supported")
     try:
@@ -87,7 +88,7 @@ class ReportsView(View):
 
         # Developer query
         elif request.user.role == EmployeeRole.DEVELOPER:
-            reports = Report.objects.filter(product=request.user.product, assigned_to=request.user)
+            reports = Report.objects.filter(Q(assigned_to=request.user) | Q(status=ReportStatus.OPENED) | Q(status=ReportStatus.REOPENED), product=request.user.product)
             if search:
                 reports = reports.filter(title__icontains=search)
             if status:
@@ -139,6 +140,8 @@ class ReportView(View):
             case ReportAction.OPEN.value:
                 if report.status != ReportStatus.NEW:
                     return HttpResponseBadRequest("Action not allowed")
+                if request.user.role != EmployeeRole.PRODUCT_OWNER:
+                    return HttpResponseForbidden()
                 severity = request.PATCH.get("severity")
                 if severity is None:
                     return HttpResponseBadRequest("Severity is required")
@@ -163,7 +166,9 @@ class ReportView(View):
                 return HttpResponse()
             case ReportAction.REJECT.value:
                 if report.status != ReportStatus.NEW:
-                    return HttpResponseBadRequest("Action not allowed")
+                        return HttpResponseBadRequest("Action not allowed")
+                if request.user.role != EmployeeRole.PRODUCT_OWNER:
+                    return HttpResponseForbidden()
                 report.status = ReportStatus.REJECTED
                 report.save()
                 notify_tester_status(report, report.status.value)
@@ -171,6 +176,8 @@ class ReportView(View):
             case ReportAction.DUPLICATE.value:
                 if report.status != ReportStatus.NEW:
                     return HttpResponseBadRequest("Action not allowed")
+                if request.user.role != EmployeeRole.PRODUCT_OWNER:
+                    return HttpResponseForbidden()
                 duplicate_of = request.PATCH.get("duplicate_of")
                 if duplicate_of is None:
                     return HttpResponseBadRequest("duplicate_of must be specified")
@@ -186,6 +193,8 @@ class ReportView(View):
             case ReportAction.ASSIGN.value:
                 if report.status != ReportStatus.OPENED and report.status != ReportStatus.REOPENED:
                     return HttpResponseBadRequest("Action not allowed")
+                if request.user.role != EmployeeRole.DEVELOPER:
+                    return HttpResponseForbidden()
                 assigned_to = request.PATCH.get("assigned_to")
                 if assigned_to is None:
                     return HttpResponseBadRequest("assigned_to is required")
@@ -201,6 +210,8 @@ class ReportView(View):
             case ReportAction.FIX.value:
                 if report.status != ReportStatus.ASSIGNED:
                     return HttpResponseBadRequest("Action not allowed")
+                if request.user.role != EmployeeRole.DEVELOPER:
+                    return HttpResponseForbidden()
                 report.assigned_to = None
                 report.status = ReportStatus.FIXED
                 report.save()
@@ -209,6 +220,8 @@ class ReportView(View):
             case ReportAction.CANNOT_REPRODUCE.value:
                 if report.status != ReportStatus.ASSIGNED:
                     return HttpResponseBadRequest("Action not allowed")
+                if request.user.role != EmployeeRole.DEVELOPER:
+                    return HttpResponseForbidden()
                 report.assigned_to = None
                 report.status = ReportStatus.COULDNT_REPRODUCE
                 report.save()
@@ -217,6 +230,8 @@ class ReportView(View):
             case ReportAction.REOPEN.value:
                 if report.status != ReportStatus.FIXED:
                     return HttpResponseBadRequest("Action not allowed")
+                if request.user.role != EmployeeRole.PRODUCT_OWNER:
+                    return HttpResponseForbidden()
                 report.assigned_to = None
                 report.status = ReportStatus.REOPENED
                 report.save()
@@ -225,6 +240,8 @@ class ReportView(View):
             case ReportAction.RESOLVE.value:
                 if report.status != ReportStatus.FIXED:
                     return HttpResponseBadRequest("Action not allowed")
+                if request.user.role != EmployeeRole.PRODUCT_OWNER:
+                    return HttpResponseForbidden()
                 report.status = ReportStatus.RESOLVED
                 report.save()
                 notify_tester_status(report, report.status.value)

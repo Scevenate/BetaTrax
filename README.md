@@ -2,25 +2,30 @@
 
 ## 1. Quick Start
 
-### Docker
-1. Build and start services:
-   - `docker compose up --build`
-2. The Django app will listen on `http://localhost:8000`.
-3. Data persists in `./data/postgres` (PostgreSQL) and `./data/migrations` (Django migrations).
+> [!WARNING]
+> The default configuration is meant for development environment or internal use. When deployed in production, make sure:
+> 1. Replace `SECRET_KEY`, disable `DEBUG`, configure `ALLOWED_HOSTS` in `project/settings.py`.
+> 2. Setup static path `STATIC_ROOT` in `project/settings.py`, deploy static files collected from `uv run manage.py collectstatic` separately.
+> 3. Configure a reverse proxy server with proper rate limiting protections on sensitive interfaces, like `admin/` and `login/`.
 
-### Local (Python manage.py)
-1. Create a virtual environment with Python 3.13+, activate it.
-2. Install dependencies:
-   - `pip install django psycopg[binary]`
-3. Run migrations:
-   - `python manage.py makemigrations BetaTrax`
-   - `python manage.py migrate`
-4. Start server:
-   - `python manage.py runserver`
-5. Data persists in `./db.sqlite3`
+### Docker
+
+`docker compose up`
+
+This spins up the app with a postgres service. Please refer to `docker-compose.yml` for common configurations.
+
+### Manual
+
+The app also supports manual deployment. It falls back to sqlite (in repo root dir) when postgres config is not provided.
+
+0. `git clone`, navigate to repository root directory.
+1. Install dependencies by `uv sync`.
+2. Setup database by `uv run manage.py makemigrations BetaTrax && uv run manage.py makemigrations && uv run migrate`
+3. Start server by `uv run gunicorn project.wsgi:application`
 
 ## 2. Environment / Components
-- Web framework: Django 6.x
+
+- Web framework: Django 6.x with gunicorn wsgi
 - Database: PostgreSQL 18 (sqlite3 can be used for local unit tests)
 - Docker image: `ghcr.io/astral-sh/uv:python3.13-bookworm-slim`
 - Authentication: Django custom user model (`Employee` with roles: `PRODUCT_OWNER`, `DEVELOPER`)

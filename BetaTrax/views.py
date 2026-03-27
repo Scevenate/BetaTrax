@@ -8,25 +8,10 @@ from django.core.exceptions import ValidationError
 from .email import notify_tester_status
 import json
 from functools import wraps
-from django.db.models import Q
+from django.shortcuts import get_object_or_404
 
 def index(request: HttpRequest):
     return HttpResponse("<h1>Server is up</h1>")
-
-def get_report(request: HttpRequest, id: int):
-    report = Report.objects.filter(product=request.user.product)
-    if request.user.role == EmployeeRole.PRODUCT_OWNER:
-        pass
-    elif request.user.role == EmployeeRole.DEVELOPER:
-        # report = report.filter(Q(assigned_to=request.user) | Q(status=ReportStatus.OPENED) | Q(status=ReportStatus.REOPENED))
-        pass
-    else:
-        return HttpResponseServerError("Role not supported")
-    try:
-        report = report.get(id=id)
-    except Report.DoesNotExist:
-        return HttpResponseNotFound()
-    return report
 
 def logged_in_check(func):
     @wraps(func)
@@ -121,17 +106,13 @@ class ReportsView(View):
 class ReportView(View):
     @logged_in_check
     def get(self, request: HttpRequest, id: int):
-        report = get_report(request, id)
-        if isinstance(report, HttpResponse):
-            return report
+        report = get_object_or_404(Report, id=id, product=request.user.product)
         return JsonResponse(model_to_dict(report))
 
     @logged_in_check
     def patch(self, request: HttpRequest, id: int):
         # Get report
-        report = get_report(request, id)
-        if isinstance(report, HttpResponse):
-            return report
+        report = get_object_or_404(Report, id=id, product=request.user.product)
         # Action validation
         request.PATCH = json.loads(request.body)
         action = request.PATCH.get("action")
@@ -248,18 +229,14 @@ class CommentsView(View):
     @logged_in_check
     def get(self, request: HttpRequest, id: int):
         # Get report
-        report = get_report(request, id)
-        if isinstance(report, HttpResponse):
-            return report
+        report = get_object_or_404(Report, id=id, product=request.user.product)
         # Get comments
         return JsonResponse({"comments": list(Comment.objects.filter(report=report).order_by('-created_at').values('id', 'employee', 'content'))})
     
     @logged_in_check
     def post(self, request: HttpRequest, id: int):
         # Get report
-        report = get_report(request, id)
-        if isinstance(report, HttpResponse):
-            return report
+        report = get_object_or_404(Report, id=id, product=request.user.product)
         # Create comment
         content = request.POST.get("content")
         if content is None:

@@ -12,4 +12,5 @@ def manage(*args):
 manage('makemigrations', 'BetaTrax')
 manage('makemigrations')
 manage('migrate')
-subprocess.run([sys.executable, 'gunicorn', '--bind', f"0.0.0.0:{os.getenv('DJANGO_PORT')}", 'project.wsgi:application'])
+subprocess.run(['gunicorn', '--bind', f"0.0.0.0:{os.getenv('DJANGO_PORT')}", 'project.wsgi:application'])
+# subprocess.run([sys.executable, 'gunicorn', '--bind', f"0.0.0.0:{os.getenv('DJANGO_PORT')}", 'project.wsgi:application'])

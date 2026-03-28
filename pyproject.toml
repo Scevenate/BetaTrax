@@ -8,7 +8,6 @@ dependencies = [
     "django>=6.0.3",
     "gunicorn>=25.3.0",
     "psycopg[binary]>=3.3.3",
-    "requests>=2.31.0",
 ]
 
 [dependency-groups]

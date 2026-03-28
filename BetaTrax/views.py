@@ -95,9 +95,11 @@ class ReportsView(View):
         description = request.POST.get("description")
         reproduce_steps = request.POST.get("reproduce_steps")
         product = Product.objects.get(id=request.POST.get("product"))
+        version = request.POST.get("version")
+        tester_id = request.POST.get("tester_id")
         tester_email = request.POST.get("tester_email") # Possibly null
         try:
-            report = Report(status="NEW", title=title, description=description, reproduce_steps=reproduce_steps, product=product, tester_email=tester_email)
+            report = Report(status="NEW", title=title, description=description, reproduce_steps=reproduce_steps, product=product, version=version, tester_id=tester_id, tester_email=tester_email)
             report.save()
         except ValidationError as e:
             return JsonResponse(e.message_dict, status=400)

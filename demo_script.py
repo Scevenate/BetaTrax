@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.13"
+# dependencies = [
+#     "requests>=2.33.0",
+# ]
+# ///
 import requests
 import json
 
-# docker compose up
-# docker compose exec betatrax uv run python setup_demo.py 
-# docker compose exec betatrax uv run python demo_script.py
+# This script is intended to be executed from outside.
 
-BASE_URL = "http://betatrax:8000"
+# Before execution, populate initial database:
+# docker compose exec betatrax uv run setup_demo.py 
+
+BASE_URL = "http://localhost:8000"
 session = requests.Session()
 
 def login(email, password):
@@ -15,10 +22,10 @@ def login(email, password):
 def logout():
     session.post(f"{BASE_URL}/logout/")
 
-def submit_report(title, description, reproduce_steps, product_id, tester_email, version):
+def submit_report(title, description, reproduce_steps, product_id, tester_email, version, tester_id):
     r = session.post(f"{BASE_URL}/report/", data={
         "title": title, "description": description, "reproduce_steps": reproduce_steps,
-        "product": product_id, "tester_email": tester_email, "version": version
+        "product": product_id, "tester_email": tester_email, "version": version, "tester_id": tester_id
     })
     if r.status_code == 201:
         r2 = session.get(f"{BASE_URL}/report/?search={title}")
@@ -58,7 +65,7 @@ report_id = submit_report(
     TARGET_TITLE,
     "Following a successful search, the hit count is different to the number of matches displayed.",
     "1. Enter search criteria that ensure at least one match\n2. Search\n3. Compare matches displayed with the number of hits reported.",
-    PRODUCT_ID, "icyreward@gmail.com", "0.9.0")
+    PRODUCT_ID, "icyreward@gmail.com", "0.9.0", "Tester_1")
 if not report_id:
     reports = list_reports('NEW')
     for r in reports:

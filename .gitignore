@@ -4,5 +4,5 @@ __pycache__/
 .cursor/
 .ruff_cache/
 data/
-
+BetaTrax/migrations/
 db.sqlite3

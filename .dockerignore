@@ -5,6 +5,7 @@
 tests/
 data/
 __pycache__/
+BetaTrax/migrations/
 
 .DS_Store
 .gitignore

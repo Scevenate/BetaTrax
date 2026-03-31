@@ -70,7 +70,17 @@ class ReportsView(View):
                 page_obj = paginator.page(page)
             except EmptyPage:
                 return HttpResponseBadRequest("Page out of range")
-            return JsonResponse({"reports": list(page_obj.object_list.values('id', 'title', 'status', 'severity', 'priority'))})
+            
+            reports = list(page_obj.object_list.values('id', 'title', 'status', 'severity', 'priority'))
+            # Map integer back to string value
+            for report in reports:
+                if report['severity'] is not None:
+                    report['severity'] = ReportSeverity(report['severity']).label
+                
+                if report['priority'] is not None:
+                    report['priority'] = ReportPriority(report['priority']).label
+            
+            return JsonResponse({"reports": reports})
 
         # Developer query
         elif request.user.role == EmployeeRole.DEVELOPER:
@@ -86,7 +96,17 @@ class ReportsView(View):
                 page_obj = paginator.page(page)
             except EmptyPage:
                 return HttpResponseBadRequest("Page out of range")
-            return JsonResponse({"reports": list(page_obj.object_list.values('id', 'title', 'status', 'severity', 'priority'))})
+            
+            reports = list(page_obj.object_list.values('id', 'title', 'status', 'severity', 'priority'))
+            # Map integer back to string value
+            for report in reports:
+                if report['severity'] is not None:
+                    report['severity'] = ReportSeverity(report['severity']).label
+                
+                if report['priority'] is not None:
+                    report['priority'] = ReportPriority(report['priority']).label
+            
+            return JsonResponse({"reports": reports})
         else:
             return HttpResponseServerError("Role not supported")
 
@@ -109,11 +129,31 @@ class ReportView(View):
     @logged_in_check
     def get(self, request: HttpRequest, id: int):
         report = get_object_or_404(Report, id=id, product=request.user.product)
-        return JsonResponse(model_to_dict(report))
+        report = model_to_dict(report)
+        # map int to string
+        if report['severity'] is not None:
+            report['severity'] = ReportSeverity(report['severity']).label
+        
+        if report['priority'] is not None:
+            report['priority'] = ReportPriority(report['priority']).label
+        return JsonResponse(report)
 
     @logged_in_check
     def patch(self, request: HttpRequest, id: int):
         # Get report
+        severity_map = {
+            "CRITICAL" : 3,
+            "MAJOR" : 2,
+            "MINOR" : 1,
+            "LOW" : 0
+        }
+
+        priority_map = {
+            "CRITICAL" : 3,
+            "HIGH" : 2,
+            "MEDIUM" : 1,
+            "LOW" : 0
+        }
         report = get_object_or_404(Report, id=id, product=request.user.product)
         # Action validation
         request.PATCH = json.loads(request.body)
@@ -131,7 +171,7 @@ class ReportView(View):
                 if severity is None:
                     return HttpResponseBadRequest("Severity is required")
                 try:
-                    severity = int(severity)
+                    severity = severity_map.get(severity)
                     assert severity in ReportSeverity.values
                 except (ValueError, AssertionError):
                     return HttpResponseBadRequest("Invalid severity")
@@ -140,7 +180,7 @@ class ReportView(View):
                 if priority is None:
                     return HttpResponseBadRequest("Priority is required")
                 try:
-                    priority = int(priority)
+                    priority = priority_map.get(priority)
                     assert priority in ReportPriority.values
                 except (ValueError, AssertionError):
                     return HttpResponseBadRequest("Invalid priority")

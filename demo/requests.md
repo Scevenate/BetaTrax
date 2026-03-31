@@ -1,6 +1,6 @@
-# 3 Ways to use the API for demo
+# 2 Ways to use python requests
 
-## Way 1a. python requests (run in command line terminal)
+## Way 1a. run in command line terminal
 
 ### Install dependency
 Open any environment in another terminal and run `pip install requests`

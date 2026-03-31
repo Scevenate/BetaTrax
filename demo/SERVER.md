@@ -17,3 +17,5 @@ cd <YOUR_REPO_LOCATION>
 4. Start server:
    - `python manage.py runserver`
 5. Data persists in `./db.sqlite3`
+
+### Remember to setup the database first as per the .md files then run the code!!!

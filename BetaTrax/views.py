@@ -286,3 +286,38 @@ class CommentsView(View):
         comment = Comment(report=report, employee=request.user, content=content)
         comment.save()
         return HttpResponse(status=201)
+
+class ProductsView(View):
+    @logged_in_check
+    def get(self, request: HttpRequest):
+        # Pagination
+        page = request.GET.get("page", default=1)
+        try:
+            page = int(page)
+            assert page > 0
+        except (ValueError, AssertionError):
+            return HttpResponseBadRequest("Invalid page parameter")
+    
+        products = Product.objects.all()
+        paginator = Paginator(products, 20)
+        try:
+            page_obj = paginator.page(page)
+        except EmptyPage:
+            return HttpResponseBadRequest("Page out of range")
+        
+        products = list(page_obj.object_list.values('id', 'name'))
+        return JsonResponse({"products": products})
+
+    @logged_in_check
+    def post(self, request: HttpRequest):
+        if request.user.role != EmployeeRole.PRODUCT_OWNER:
+            return HttpResponseForbidden()
+        name = request.POST.get("name")
+        if name is None:
+            return HttpResponseBadRequest("name is required")
+        product = Product(name=name)
+        try:
+            product.save()
+        except ValidationError as e:
+            return JsonResponse(e.message_dict, status=400)
+        return HttpResponse(status=201)

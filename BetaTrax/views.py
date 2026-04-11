@@ -5,7 +5,7 @@ from django.core.paginator import Paginator, EmptyPage
 from django.forms.models import model_to_dict
 from django.views import View
 from django.core.exceptions import ValidationError
-from .email import notify_tester_status
+from .email import notify_all_testers_status
 import json
 from functools import wraps
 from django.shortcuts import get_object_or_404
@@ -141,19 +141,6 @@ class ReportView(View):
     @logged_in_check
     def patch(self, request: HttpRequest, id: int):
         # Get report
-        severity_map = {
-            "CRITICAL" : 3,
-            "MAJOR" : 2,
-            "MINOR" : 1,
-            "LOW" : 0
-        }
-
-        priority_map = {
-            "CRITICAL" : 3,
-            "HIGH" : 2,
-            "MEDIUM" : 1,
-            "LOW" : 0
-        }
         report = get_object_or_404(Report, id=id, product=request.user.product)
         # Action validation
         request.PATCH = json.loads(request.body)
@@ -171,23 +158,21 @@ class ReportView(View):
                 if severity is None:
                     return HttpResponseBadRequest("Severity is required")
                 try:
-                    severity = severity_map.get(severity)
-                    assert severity in ReportSeverity.values
-                except (ValueError, AssertionError):
+                    severity = ReportSeverity[severity]
+                except KeyError:
                     return HttpResponseBadRequest("Invalid severity")
                 report.severity = severity
                 priority = request.PATCH.get("priority")
                 if priority is None:
                     return HttpResponseBadRequest("Priority is required")
                 try:
-                    priority = priority_map.get(priority)
-                    assert priority in ReportPriority.values
-                except (ValueError, AssertionError):
+                    priority = ReportPriority[priority]
+                except KeyError:
                     return HttpResponseBadRequest("Invalid priority")
                 report.priority = priority
                 report.status = ReportStatus.OPENED
                 report.save()
-                notify_tester_status(report, report.status.value)
+                notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.REJECT.value:
                 if report.status != ReportStatus.NEW:
@@ -196,7 +181,7 @@ class ReportView(View):
                     return HttpResponseForbidden()
                 report.status = ReportStatus.REJECTED
                 report.save()
-                notify_tester_status(report, report.status.value)
+                notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.DUPLICATE.value:
                 if report.status != ReportStatus.NEW:
@@ -213,7 +198,7 @@ class ReportView(View):
                 report.duplicate_of = duplicate_of
                 report.status = ReportStatus.DUPLICATED
                 report.save()
-                notify_tester_status(report, report.status.value)
+                notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.ASSIGN.value:
                 if report.status != ReportStatus.OPENED and report.status != ReportStatus.REOPENED:
@@ -223,7 +208,7 @@ class ReportView(View):
                 report.assigned_to = request.user
                 report.status = ReportStatus.ASSIGNED
                 report.save()
-                notify_tester_status(report, report.status.value)
+                notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.FIX.value:
                 if report.status != ReportStatus.ASSIGNED:
@@ -233,7 +218,7 @@ class ReportView(View):
                 report.assigned_to = None
                 report.status = ReportStatus.FIXED
                 report.save()
-                notify_tester_status(report, report.status.value)
+                notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.CANNOT_REPRODUCE.value:
                 if report.status != ReportStatus.ASSIGNED:
@@ -243,7 +228,7 @@ class ReportView(View):
                 report.assigned_to = None
                 report.status = ReportStatus.COULDNT_REPRODUCE
                 report.save()
-                notify_tester_status(report, report.status.value)
+                notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.REOPEN.value:
                 if report.status != ReportStatus.FIXED:
@@ -253,16 +238,17 @@ class ReportView(View):
                 report.assigned_to = None
                 report.status = ReportStatus.REOPENED
                 report.save()
-                notify_tester_status(report, report.status.value)
+                notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.RESOLVE.value:
                 if report.status != ReportStatus.FIXED:
                     return HttpResponseBadRequest("Action not allowed")
                 if request.user.role != EmployeeRole.PRODUCT_OWNER:
                     return HttpResponseForbidden()
+                report.assigned_to = None
                 report.status = ReportStatus.RESOLVED
                 report.save()
-                notify_tester_status(report, report.status.value)
+                notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case _:
                 return HttpResponseBadRequest("Invalid action")

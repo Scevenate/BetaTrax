@@ -33,7 +33,7 @@ The app also supports manual deployment. It falls back to sqlite (in repo root d
 - API endpoints are defined in `BetaTrax/views.py` and `project/urls.py`.
 - CSRF: currently disabled until frontend is connected.
 
-## 3. Supported Functionality (Required Slice)
+## 3.1 Supported Functionality (Sprint 1)
 
 ### Actors
 - `Product Owner` (role `PRODUCT_OWNER`)
@@ -71,25 +71,33 @@ The app also supports manual deployment. It falls back to sqlite (in repo root d
 - `GET /report/<id>/` returns full report details.
 
 ### Comments
-- `GET /report/<id>/comments/` returns comments for report.
+- `GET /report/<id>/comments/` returns comments for report (ordered by newest first).
 - `POST /report/<id>/comments/` adds comment as current authenticated user.
+  - Required field: `content`
+- (Updated in Sprint 2 with ordering and required field validation)
 
 ### Authentication
 - `POST /login/` with `email`, `password`.
 - `POST /logout/`.
 - All report and comment endpoints require logged-in users (403 otherwise), except report creation.
 
-## 3.1 Additional functions
-- Report CRUD coverage in views:
-  - `GET /report/` list (with search/paging/sort/status filters)
-  - `GET /report/<id>/` detail
-  - `POST /report/` create (NEW)
-  - `PATCH /report/<id>/` update/report transition
-- Comment CRUD:
-  - `GET /report/<id>/comments/` list
-  - `POST /report/<id>/comments/` create
+### Implementation Details
 - Status transition validation is enforced in `ReportView.patch` via `ReportAction` and `ReportStatus`.
 - People management via `Employee` model with role guard in report access (owners see product reports; developers only assigned reports).
+
+## 3.2 Supported Functionality (Sprint 2)
+
+### Employee Management
+- `GET /employee/<id>/` returns employee details (id, email, role, product) for authenticated users.
+- `PATCH /employee/<id>/` allows employees to assign themselves to a product (requires self-access, product must not have an owner).
+  - Required field in JSON body: `product` (product ID)
+
+### Products
+- `GET /product/` list products with query param:
+  - `page` (1-based, 20 items/page, requires login)
+  - Returns fields: `id`, `name`, `owner`, `created_at`, `updated_at`
+- `POST /product/` create product (requires PRODUCT_OWNER role)
+  - Required field: `name`
 
 ## 4. Verification / Testing
 

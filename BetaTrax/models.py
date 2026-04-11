@@ -3,17 +3,18 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from enum import Enum
 
 class EmployeeManager(BaseUserManager):
-    def create_user(self, email, password, product,**extra_fields):
+    def create_user(self, email, password, product=None,**extra_fields):
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
-        product = Product.objects.get(id=product)
+        if product is not None:
+            product = Product.objects.get(id=product)
         user = self.model(email=email, product=product, **extra_fields)
         user.set_password(password)
         user.save()
         return user
 
-    def create_superuser(self, email, password, product, **extra_fields):
+    def create_superuser(self, email, password, product=None, **extra_fields):
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_staff', True)
         return self.create_user(email, password, product, **extra_fields)
@@ -29,11 +30,11 @@ class Employee(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     role = models.CharField(max_length=20, choices=EmployeeRole)
-    product = models.ForeignKey("Product", on_delete=models.RESTRICT)
+    product = models.ForeignKey("Product", null=True, on_delete=models.SET_NULL)
     objects = EmployeeManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['role', 'product']
+    REQUIRED_FIELDS = ['role']
 
     def __str__(self):
         return self.email
@@ -41,6 +42,9 @@ class Employee(AbstractBaseUser, PermissionsMixin):
 class Product(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50)
+    has_owner = models.BooleanField(default=False) # Because Employee has field product, it is no longer possible to have product foreign key back to Employee. The Employee field product is low coherence high coupling so for the stability of the system, I gave up.
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name

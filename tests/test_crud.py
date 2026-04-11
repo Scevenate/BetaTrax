@@ -83,6 +83,7 @@ class TestCrud(TestCase):
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'ASSIGN',
             }, content_type='application/json').status_code, 403)
+            self.assertEqual(self.client.patch('/report/1/', '{"action": "bad"').status_code, 400)
             self.assertEqual(self.client.post('/login/', {
                 'email': self.developer.email,
                 'password': 'developerpassword',

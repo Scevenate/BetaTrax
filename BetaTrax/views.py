@@ -143,7 +143,10 @@ class ReportView(View):
         # Get report
         report = get_object_or_404(Report, id=id, product=request.user.product)
         # Action validation
-        request.PATCH = json.loads(request.body)
+        try:
+            request.PATCH = json.loads(request.body)
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest("Invalid JSON")
         action = request.PATCH.get("action")
         if action is None:
             return HttpResponseBadRequest("Action is required")
@@ -291,7 +294,7 @@ class ProductsView(View):
         except EmptyPage:
             return HttpResponseBadRequest("Page out of range")
         
-        products = list(page_obj.object_list.values('id', 'name'))
+        products = list(page_obj.object_list.values('id', 'name', 'owner', 'created_at', 'updated_at'))
         return JsonResponse({"products": products})
 
     @logged_in_check
@@ -307,3 +310,31 @@ class ProductsView(View):
         except ValidationError as e:
             return JsonResponse(e.message_dict, status=400)
         return HttpResponse(status=201)
+
+class EmployeeView(View):
+    @logged_in_check
+    def get(self, request: HttpRequest, id: int):
+        employee = get_object_or_404(Employee.objects.all().values('id', 'email', 'role', 'product'), id=id)
+        return JsonResponse(employee)
+    
+    @logged_in_check
+    def patch(self, request: HttpRequest, id: int):
+        try:
+            request.PATCH = json.loads(request.body)
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest("Invalid JSON")
+        # ID validation
+        if request.user.id != id:
+            return HttpResponseForbidden()
+        employee = Employee.objects.get(id=id)
+        # Product assignment
+        product = Product.objects.get(id=request.PATCH.get("product"))
+        if product is None:
+            return HttpResponseBadRequest("No such product")
+        if product.has_owner:
+            return HttpResponseBadRequest("Product already has owner")
+        employee.product = product
+        employee.save()
+        product.has_owner = True
+        product.save()
+        return HttpResponse()

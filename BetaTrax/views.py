@@ -5,6 +5,7 @@ from django.core.paginator import Paginator, EmptyPage
 from django.forms.models import model_to_dict
 from django.views import View
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from .email import notify_all_testers_status
 import json
 from functools import wraps
@@ -328,13 +329,31 @@ class EmployeeView(View):
             return HttpResponseForbidden()
         employee = Employee.objects.get(id=id)
         # Product assignment
-        product = Product.objects.get(id=request.PATCH.get("product"))
-        if product is None:
-            return HttpResponseBadRequest("No such product")
-        if product.has_owner:
-            return HttpResponseBadRequest("Product already has owner")
-        employee.product = product
-        employee.save()
-        product.has_owner = True
-        product.save()
+        product_id = request.PATCH.get("product")
+        if product_id is None:
+            return HttpResponseBadRequest("product is required")
+        product = get_object_or_404(Product, id=product_id)
+        # if already is the same
+        if employee.product_id == product.id:
+            return HttpResponse()
+        
+        if request.user.role == EmployeeRole.PRODUCT_OWNER:
+            if product.has_owner:
+                return HttpResponseBadRequest("Product already has owner")
+            # if error during process, return previous state, will not have partial update
+            with transaction.atomic():
+                current_product = employee.product
+                # release previous product if have
+                if current_product is not None:
+                    current_product.has_owner = False
+                    current_product.save()
+
+                employee.product = product
+                employee.save()
+
+                product.has_owner = True
+                product.save()
+        elif request.user.role == EmployeeRole.DEVELOPER:
+            employee.product = product
+            employee.save()
         return HttpResponse()

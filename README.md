@@ -63,7 +63,7 @@ The app also supports manual deployment. It falls back to sqlite (in repo root d
 - `CANNOT_REPRODUCE`: on `ASSIGNED` -> clears `assigned_to`, status `COULDNT_REPRODUCE`.
 
 ### Reporting and filtering
-- `GET /report/` with query params:
+- `GET /report/` with query params (return all filtered reports):
   - `status` (any `ReportStatus` value or omitted)
   - `search` (title contains)
   - `sort` (`-updated_at`, `-severity`, `-priority`)
@@ -108,12 +108,14 @@ The app also supports manual deployment. It falls back to sqlite (in repo root d
   - `python manage.py test tests.test_crud`    : life-cycle transitions and permission checks.
   - `python manage.py test tests.test_view`    : filters, status querying, pagination, report details.
   - `python manage.py test tests.test_comment` : comment creation/listing behavior.
+  - `python manage.py test tests.test_product` : product creation/listing/assignment behavior.
 
 (These confirm life-cycle transitions, role-based access, report filtering, and comment behavior.)
 
 ### Manual smoke tests
-1. Create product/user via shell or admin.
-2. Create report via `POST /report/`.
-3. Log in as owner and run a state transition (OPEN, ASSIGN, etc.) using `PATCH /report/<id>/`.
-4. Log in as developer and run developer actions (FIX/CANNOT_REPRODUCE).
-5. Confirm `GET /report/` results and `/report/<id>/comments/`.
+1. Create user via shell or admin.
+2. Create product via `POST /product/` and assign via `PATCH /employee/<id>/` with logged in as Product Owner role.
+3. Create report via `POST /report/`.
+4. Log in as owner and run a state transition (OPEN, ASSIGN, etc.) using `PATCH /report/<id>/`.
+5. Log in as developer and run developer actions (FIX/CANNOT_REPRODUCE).
+6. Confirm `GET /report/` results and `/report/<id>/comments/`.

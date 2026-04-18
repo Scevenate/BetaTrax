@@ -111,6 +111,26 @@ class Report(models.Model):
     def __str__(self):
         return f"{self.id:04d} | {self.status} : {self.title}"
 
+class FixRecord(models.Model):
+    id = models.AutoField(primary_key=True)
+    report = models.ForeignKey("Report", on_delete=models.CASCADE)
+    developer = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, related_name="fix_records")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        developer_email = self.developer.email if self.developer is not None else "Unknown developer"
+        return f"{self.id:04d} | {developer_email} fixed report {self.report.id}"
+
+class ReopenRecord(models.Model):
+    id = models.AutoField(primary_key=True)
+    report = models.ForeignKey("Report", on_delete=models.CASCADE)
+    fixed_by = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, related_name="reopen_records")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        developer_email = self.fixed_by.email if self.fixed_by is not None else "Unknown developer"
+        return f"{self.id:04d} | report {self.report.id} reopened after fix by {developer_email}"
+
 class Comment(models.Model):
     id = models.AutoField(primary_key=True)
     report = models.ForeignKey("Report", on_delete=models.CASCADE)

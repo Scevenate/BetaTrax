@@ -11,4 +11,5 @@ urlpatterns = [
     path('report/<int:id>/comments/', views.CommentsView.as_view(), name="comments"),
     path('product/', views.ProductsView.as_view(), name="products"),
     path('employee/<int:id>/', views.EmployeeView.as_view(), name="employee"),
+    path('employee/<int:id>/effectiveness/', views.DeveloperEffectivenessView.as_view(), name="employee_effectiveness"),
 ]

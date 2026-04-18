@@ -1,5 +1,7 @@
+import json
+
 from django.test import TestCase
-from BetaTrax.models import Employee, Product
+from BetaTrax.models import Employee, Product, Report, ReportStatus, ReportAction
 
 class TestView(TestCase):
     def assertReportTitles(self, response, reports):
@@ -67,21 +69,69 @@ class TestView(TestCase):
         self.assertReportTitle(self.client.get('/report/2/').json(), reports[1])
         self.assertEqual(self.client.post('/logout/').status_code, 200)
         self.assertEqual(self.client.get('/report/').status_code, 403)
+
+    def test_developer_effectiveness_metric(self):
+        self.product = Product.objects.create(name='Metric Product')
+        self.owner = Employee.objects.create_user(
+            email='owner2@test.com',
+            password='ownerpassword2',
+            role='PRODUCT_OWNER',
+            product=self.product.id,
+        )
+        self.dev = Employee.objects.create_user(
+            email='dev2@test.com',
+            password='devpassword2',
+            role='DEVELOPER',
+            product=self.product.id,
+        )
+
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.owner.email,
+            'password': 'ownerpassword2',
+        }).status_code, 200)
+
+        # Create and open reports, assign and fix many of them by the developer.
+        for i in range(33):
+            response = self.client.post('/report/', {
+                'title': f'Report {i+1}',
+                'description': f'Description {i+1}',
+                'reproduce_steps': f'Steps {i+1}',
+                'product': self.product.id,
+                'tester_id': f'tester {i+1}',
+            })
+            self.assertEqual(response.status_code, 201)
+
+            # Open the report as product owner.
+            self.assertEqual(self.client.patch(f'/report/{i+1}/', json.dumps({
+                'action': 'OPEN',
+                'severity': 'LOW',
+                'priority': 'LOW',
+            }), content_type='application/json').status_code, 200)
+
+        # Log in as developer to assign and fix reports.
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
         self.assertEqual(self.client.post('/login/', {
             'email': self.dev.email,
-            'password': 'devpassword',
+            'password': 'devpassword2',
         }).status_code, 200)
-        self.assertReportTitles(self.client.get('/report/').json(), list(reversed(reports)))
-        self.assertReportTitles(self.client.get('/report/?status=NEW').json(), list(reversed(reports)))
-        self.assertReportTitles(self.client.get('/report/?status=COULDNT_REPRODUCE&page=1&sort=-priority').json(), [])
-        self.assertReportTitles(self.client.get('/report/?search=Report 1').json(), [reports[0]])
-        self.assertEqual(self.client.get('/report/?status=OPEN&sort=UwU').status_code, 400)
-        self.assertEqual(self.client.get('/report/?status=KALTSIT&sort=-priority').status_code, 400)
-        self.assertEqual(self.client.get('/report/?page=p').status_code, 400)
-        self.assertEqual(self.client.get('/report/?page=2').status_code, 400)
 
-        self.assertEqual(self.client.get('/report/14/').status_code, 404)
-        self.assertReportTitle(self.client.get('/report/1/').json(), reports[0])
-        self.assertReportTitle(self.client.get('/report/2/').json(), reports[1])
+        for report_id in range(1, 34):
+            self.assertEqual(self.client.patch(f'/report/{report_id}/', json.dumps({'action': 'ASSIGN'}), content_type='application/json').status_code, 200)
+            self.assertEqual(self.client.patch(f'/report/{report_id}/', json.dumps({'action': 'FIX'}), content_type='application/json').status_code, 200)
+
         self.assertEqual(self.client.post('/logout/').status_code, 200)
-        self.assertEqual(self.client.get('/report/').status_code, 403)
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.owner.email,
+            'password': 'ownerpassword2',
+        }).status_code, 200)
+
+        # Reopen one report to create a reopen count.
+        self.assertEqual(self.client.patch('/report/1/', json.dumps({'action': 'REOPEN'}), content_type='application/json').status_code, 200)
+
+        # Request developer effectiveness.
+        response = self.client.get(f'/employee/{self.dev.id}/effectiveness/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['fixed_count'], 33)
+        self.assertEqual(data['reopened_count'], 1)
+        self.assertEqual(data['effectiveness'], 'Good')

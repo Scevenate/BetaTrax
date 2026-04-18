@@ -1,5 +1,5 @@
 from django.http import HttpRequest, HttpResponse, HttpResponseServerError, JsonResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseNotFound
-from .models import Product, Report, EmployeeRole, ReportStatus, ReportAction, ReportSeverity, ReportPriority, Employee, Comment
+from .models import Product, Report, EmployeeRole, ReportStatus, ReportAction, ReportSeverity, ReportPriority, Employee, Comment, FixRecord, ReopenRecord
 from django.contrib.auth import authenticate, login, logout
 from django.core.paginator import Paginator, EmptyPage
 from django.forms.models import model_to_dict
@@ -222,6 +222,7 @@ class ReportView(View):
                 report.assigned_to = None
                 report.status = ReportStatus.FIXED
                 report.save()
+                FixRecord(report=report, developer=request.user).save()
                 notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.CANNOT_REPRODUCE.value:
@@ -239,9 +240,12 @@ class ReportView(View):
                     return HttpResponseBadRequest("Action not allowed")
                 if request.user.role != EmployeeRole.PRODUCT_OWNER:
                     return HttpResponseForbidden()
+                last_fix = FixRecord.objects.filter(report=report).order_by('-created_at').first()
+                fixed_by = last_fix.developer if last_fix is not None else None
                 report.assigned_to = None
                 report.status = ReportStatus.REOPENED
                 report.save()
+                ReopenRecord(report=report, fixed_by=fixed_by).save()
                 notify_all_testers_status(report, report.status.value)
                 return HttpResponse()
             case ReportAction.RESOLVE.value:
@@ -256,6 +260,45 @@ class ReportView(View):
                 return HttpResponse()
             case _:
                 return HttpResponseBadRequest("Invalid action")
+
+class DeveloperEffectivenessView(View):
+    @logged_in_check
+    def get(self, request: HttpRequest, id: int):
+        developer = get_object_or_404(Employee, id=id, role=EmployeeRole.DEVELOPER)
+        if request.user.is_superuser:
+            pass
+        elif request.user.role == EmployeeRole.DEVELOPER:
+            if request.user.id != developer.id:
+                return HttpResponseForbidden()
+        elif request.user.role == EmployeeRole.PRODUCT_OWNER:
+            if developer.product != request.user.product:
+                return HttpResponseForbidden()
+        else:
+            return HttpResponseForbidden()
+
+        fixed_count = FixRecord.objects.filter(developer=developer).count()
+        reopened_count = ReopenRecord.objects.filter(fixed_by=developer).count()
+        ratio = None
+        if fixed_count:
+            ratio = reopened_count / fixed_count
+
+        if fixed_count < 20:
+            effectiveness = "Insufficient data"
+        elif ratio < 1/32:
+            effectiveness = "Good"
+        elif ratio < 1/8:
+            effectiveness = "Fair"
+        else:
+            effectiveness = "Poor"
+
+        return JsonResponse({
+            "developer_id": developer.id,
+            "email": developer.email,
+            "fixed_count": fixed_count,
+            "reopened_count": reopened_count,
+            "ratio": ratio,
+            "effectiveness": effectiveness,
+        })
 
 class CommentsView(View):
     @logged_in_check
@@ -295,7 +338,7 @@ class ProductsView(View):
         except EmptyPage:
             return HttpResponseBadRequest("Page out of range")
         
-        products = list(page_obj.object_list.values('id', 'name', 'owner', 'created_at', 'updated_at'))
+        products = list(page_obj.object_list.values('id', 'name', 'has_owner', 'created_at', 'updated_at'))
         return JsonResponse({"products": products})
 
     @logged_in_check

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'BetaTrax',
+    'rest_framework',
 ]
 
 AUTH_USER_MODEL = 'BetaTrax.Employee'

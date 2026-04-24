@@ -1,7 +1,7 @@
-from django.test import TestCase
+from rest_framework.test import APITestCase
 from BetaTrax.models import Employee, Product, Report
 
-class TestComment(TestCase):
+class TestComment(APITestCase):
     def assertCommentContents(self, response, comments):
         n = len(comments)
         if len(response['comments']) != n:

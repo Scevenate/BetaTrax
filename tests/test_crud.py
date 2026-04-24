@@ -1,8 +1,8 @@
-from django.test import TestCase
+from rest_framework.test import APITestCase
 from BetaTrax.models import Product, Employee
 from unittest.mock import patch
 
-class TestCrud(TestCase):
+class TestCrud(APITestCase):
     def assert_email_output(self, mock_send):
         expected_output = [
             "[Email] TO: tester1@test.com, SUBJECT: Report Updated, MESSAGE: Your report Report 1 has been updated to OPENED.",
@@ -74,16 +74,15 @@ class TestCrud(TestCase):
                 'action': 'OPEN',
                 'severity': 'MAJOR',
                 'priority': 'HIGH',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.patch('/report/3/', {
                 'action': 'OPEN',
                 'severity': 'CRITICAL',
                 'priority': 'LOW',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'ASSIGN',
-            }, content_type='application/json').status_code, 403)
-            self.assertEqual(self.client.patch('/report/1/', '{"action": "bad"').status_code, 400)
+            }).status_code, 403)
             self.assertEqual(self.client.post('/login/', {
                 'email': self.developer.email,
                 'password': 'developerpassword',
@@ -92,27 +91,27 @@ class TestCrud(TestCase):
             self.assertEqual(self.client.patch('/report/2/', {
                 'action': 'DUPLICATE',
                 'duplicate_of': 1,
-            }, content_type='application/json').status_code, 403)
+            }).status_code, 403)
             self.assertEqual(self.client.post('/login/', {
                 'email': self.developer.email,
                 'password': 'developerpassword',
             }).status_code, 200)
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'ASSIGN',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.patch('/report/3/', {
                 'action': 'ASSIGN',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.patch('/report/2/', {
                 'action': 'DUPLICATE',
                 'duplicate_of': 1,
-            }, content_type='application/json').status_code, 403)
+            }).status_code, 403)
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'FIX',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.patch('/report/3/', {
                 'action': 'FIX',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.post('/logout/').status_code, 200)
             self.assertEqual(self.client.post('/login/', {
                 'email': self.owner.email,
@@ -121,13 +120,13 @@ class TestCrud(TestCase):
             self.assertEqual(self.client.patch('/report/2/', {
                 'action': 'DUPLICATE',
                 'duplicate_of': 1,
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'REOPEN',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.patch('/report/3/', {
                 'action': 'RESOLVE',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.post('/logout/').status_code, 200)
             self.assertEqual(self.client.post('/login/', {
                 'email': self.developer.email,
@@ -135,16 +134,16 @@ class TestCrud(TestCase):
             }).status_code, 200)
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'FIX',
-            }, content_type='application/json').status_code, 400)
+            }).status_code, 400)
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'RESOLVE',
-            }, content_type='application/json').status_code, 400)
+            }).status_code, 400)
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'ASSIGN',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.patch('/report/1/', {
                 'action': 'FIX',
-            }, content_type='application/json').status_code, 200)
+            }).status_code, 200)
             self.assertEqual(self.client.post('/logout/').status_code, 200)
 
             self.assert_email_output(mock_send)

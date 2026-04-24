@@ -1,9 +1,7 @@
-import json
-
-from django.test import TestCase
+from rest_framework.test import APITestCase
 from BetaTrax.models import Employee, Product, Report, ReportStatus, ReportAction
 
-class TestView(TestCase):
+class TestView(APITestCase):
     def assertReportTitles(self, response, reports):
         n = len(reports)
         if len(response['reports']) != n:
@@ -102,11 +100,11 @@ class TestView(TestCase):
             self.assertEqual(response.status_code, 201)
 
             # Open the report as product owner.
-            self.assertEqual(self.client.patch(f'/report/{i+1}/', json.dumps({
+            self.assertEqual(self.client.patch(f'/report/{i+1}/', {
                 'action': 'OPEN',
                 'severity': 'LOW',
                 'priority': 'LOW',
-            }), content_type='application/json').status_code, 200)
+            }).status_code, 200)
 
         # Log in as developer to assign and fix reports.
         self.assertEqual(self.client.post('/logout/').status_code, 200)
@@ -116,8 +114,8 @@ class TestView(TestCase):
         }).status_code, 200)
 
         for report_id in range(1, 34):
-            self.assertEqual(self.client.patch(f'/report/{report_id}/', json.dumps({'action': 'ASSIGN'}), content_type='application/json').status_code, 200)
-            self.assertEqual(self.client.patch(f'/report/{report_id}/', json.dumps({'action': 'FIX'}), content_type='application/json').status_code, 200)
+            self.assertEqual(self.client.patch(f'/report/{report_id}/', {'action': 'ASSIGN'}).status_code, 200)
+            self.assertEqual(self.client.patch(f'/report/{report_id}/', {'action': 'FIX'}).status_code, 200)
 
         self.assertEqual(self.client.post('/logout/').status_code, 200)
         self.assertEqual(self.client.post('/login/', {
@@ -126,7 +124,7 @@ class TestView(TestCase):
         }).status_code, 200)
 
         # Reopen one report to create a reopen count.
-        self.assertEqual(self.client.patch('/report/1/', json.dumps({'action': 'REOPEN'}), content_type='application/json').status_code, 200)
+        self.assertEqual(self.client.patch('/report/1/', {'action': 'REOPEN'}).status_code, 200)
 
         # Request developer effectiveness.
         response = self.client.get(f'/employee/{self.dev.id}/effectiveness/')

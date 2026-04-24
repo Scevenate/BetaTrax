@@ -2,10 +2,10 @@
 .git/
 .ruff_cache/
 .venv/
-tests/
+# tests/
 data/
 __pycache__/
-BetaTrax/migrations/
+**/migrations/
 
 .DS_Store
 .gitignore

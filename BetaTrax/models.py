@@ -43,8 +43,6 @@ class Product(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50)
     has_owner = models.BooleanField(default=False) # Because Employee has field product, it is no longer possible to have product foreign key back to Employee. The Employee field product is low coherence high coupling so for the stability of the system, I gave up.
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name

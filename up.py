@@ -7,7 +7,7 @@ def manage(*args):
     if result.returncode != 0:
         sys.exit(result.returncode)
 
+manage('makemigrations', 'Tenants')
 manage('makemigrations', 'BetaTrax')
-manage('makemigrations')
 manage('migrate')
 subprocess.run(['gunicorn', '--bind', f"0.0.0.0:{os.getenv('DJANGO_PORT')}", 'project.wsgi:application'])

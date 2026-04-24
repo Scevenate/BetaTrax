@@ -17,6 +17,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "django" },
+    { name = "django-tenants" },
     { name = "djangorestframework" },
     { name = "gunicorn" },
     { name = "psycopg", extra = ["binary"] },
@@ -30,6 +31,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "django", specifier = ">=6.0.3" },
+    { name = "django-tenants", specifier = ">=3.10.1" },
     { name = "djangorestframework", specifier = ">=3.17.1" },
     { name = "gunicorn", specifier = ">=25.3.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.3" },
@@ -50,6 +52,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/80/e1/894115c6bd70e2c8b66b0c40a3c367d83a5a48c034a4d904d31b62f7c53a/django-6.0.3.tar.gz", hash = "sha256:90be765ee756af8a6cbd6693e56452404b5ad15294f4d5e40c0a55a0f4870fe1", size = 10872701, upload-time = "2026-03-03T13:55:15.026Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/72/b1/23f2556967c45e34d3d3cf032eb1bd3ef925ee458667fb99052a0b3ea3a6/django-6.0.3-py3-none-any.whl", hash = "sha256:2e5974441491ddb34c3f13d5e7a9f97b07ba03bf70234c0a9c68b79bbb235bc3", size = 8358527, upload-time = "2026-03-03T13:55:10.552Z" },
+]
+
+[[package]]
+name = "django-tenants"
+version = "3.10.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b8/b8/24200c02a3ec2922ff012544a92278631750380fda5f4ff89f8b985365a3/django_tenants-3.10.1.tar.gz", hash = "sha256:cf3ea79a23a6df8db3ed24d4220a1c037749e6070a36864f5f9d50550c2a4fa7", size = 154294, upload-time = "2026-03-17T16:03:21.606Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/2f/309ab84126582f92d137e49c3df1ee9cc05b56e3b32428130138f5263036/django_tenants-3.10.1-py3-none-any.whl", hash = "sha256:01b4fb6754ac1e77d7f6a21f43b92149fecbdf7ea9dd91d73ec9c43e11967c40", size = 216574, upload-time = "2026-03-17T16:03:16.372Z" },
 ]
 
 [[package]]

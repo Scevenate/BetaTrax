@@ -1,8 +1,13 @@
-from rest_framework.test import APITestCase
-from BetaTrax.models import Product, Employee
+from rest_framework.test import APITestCase, APIClient
+from BetaTrax.models import Product, Employee, Report
 from unittest.mock import patch
+from django_tenants.test.cases import TenantTestCase
 
-class TestCrud(APITestCase):
+class TestCrud(APITestCase, TenantTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = APIClient(HTTP_HOST='tenant.test.com')
+
     def assert_email_output(self, mock_send):
         expected_output = [
             "[Email] TO: tester1@test.com, SUBJECT: Report Updated, MESSAGE: Your report Report 1 has been updated to OPENED.",
@@ -66,21 +71,24 @@ class TestCrud(APITestCase):
             self.assertEqual(self.client.post('/report/', reports[0]).status_code, 201)
             self.assertEqual(self.client.post('/report/', reports[1]).status_code, 201)
             self.assertEqual(self.client.post('/report/', reports[2]).status_code, 201)
+            report_1_id = Report.objects.get(title=reports[0]['title'], product=self.product).id
+            report_2_id = Report.objects.get(title=reports[1]['title'], product=self.product).id
+            report_3_id = Report.objects.get(title=reports[2]['title'], product=self.product).id
             self.assertEqual(self.client.post('/login/', {
                 'email': self.owner.email,
                 'password': 'ownerpassword',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'OPEN',
                 'severity': 'MAJOR',
                 'priority': 'HIGH',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/3/', {
+            self.assertEqual(self.client.patch(f'/report/{report_3_id}/', {
                 'action': 'OPEN',
                 'severity': 'CRITICAL',
                 'priority': 'LOW',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'ASSIGN',
             }).status_code, 403)
             self.assertEqual(self.client.post('/login/', {
@@ -88,28 +96,28 @@ class TestCrud(APITestCase):
                 'password': 'developerpassword',
             }).status_code, 403)
             self.assertEqual(self.client.post('/logout/').status_code, 200)
-            self.assertEqual(self.client.patch('/report/2/', {
+            self.assertEqual(self.client.patch(f'/report/{report_2_id}/', {
                 'action': 'DUPLICATE',
-                'duplicate_of': 1,
+                'duplicate_of': report_1_id,
             }).status_code, 403)
             self.assertEqual(self.client.post('/login/', {
                 'email': self.developer.email,
                 'password': 'developerpassword',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'ASSIGN',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/3/', {
+            self.assertEqual(self.client.patch(f'/report/{report_3_id}/', {
                 'action': 'ASSIGN',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/2/', {
+            self.assertEqual(self.client.patch(f'/report/{report_2_id}/', {
                 'action': 'DUPLICATE',
-                'duplicate_of': 1,
+                'duplicate_of': report_1_id,
             }).status_code, 403)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'FIX',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/3/', {
+            self.assertEqual(self.client.patch(f'/report/{report_3_id}/', {
                 'action': 'FIX',
             }).status_code, 200)
             self.assertEqual(self.client.post('/logout/').status_code, 200)
@@ -117,14 +125,14 @@ class TestCrud(APITestCase):
                 'email': self.owner.email,
                 'password': 'ownerpassword',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/2/', {
+            self.assertEqual(self.client.patch(f'/report/{report_2_id}/', {
                 'action': 'DUPLICATE',
-                'duplicate_of': 1,
+                'duplicate_of': report_1_id,
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'REOPEN',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/3/', {
+            self.assertEqual(self.client.patch(f'/report/{report_3_id}/', {
                 'action': 'RESOLVE',
             }).status_code, 200)
             self.assertEqual(self.client.post('/logout/').status_code, 200)
@@ -132,16 +140,16 @@ class TestCrud(APITestCase):
                 'email': self.developer.email,
                 'password': 'developerpassword',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'FIX',
             }).status_code, 400)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'RESOLVE',
             }).status_code, 400)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'ASSIGN',
             }).status_code, 200)
-            self.assertEqual(self.client.patch('/report/1/', {
+            self.assertEqual(self.client.patch(f'/report/{report_1_id}/', {
                 'action': 'FIX',
             }).status_code, 200)
             self.assertEqual(self.client.post('/logout/').status_code, 200)

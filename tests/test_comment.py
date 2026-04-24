@@ -1,7 +1,12 @@
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase
 from BetaTrax.models import Employee, Product, Report
+from django_tenants.test.cases import TenantTestCase
 
-class TestComment(APITestCase):
+class TestComment(APITestCase, TenantTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = APIClient(HTTP_HOST='tenant.test.com')
+
     def assertCommentContents(self, response, comments):
         n = len(comments)
         if len(response['comments']) != n:
@@ -32,37 +37,38 @@ class TestComment(APITestCase):
             tester_id='tester 1',
             status='RESOLVED',
         )
+        report_comments_url = f'/report/{self.report.id}/comments/'
         comments = ["Needs dev review.", 
             "No longer supported.",
             "The report seems to be addressing the side bar in android app home page.",
         ]
-        self.assertEqual(self.client.post('/report/1/comments/', {
+        self.assertEqual(self.client.post(report_comments_url, {
             'content': comments[0],
         }).status_code, 403)
         self.assertEqual(self.client.post('/login/', {
             'email': self.owner.email,
             'password': 'ownerpassword',
         }).status_code, 200)
-        self.assertCommentContents(self.client.get('/report/1/comments/').json(), [])
-        self.assertEqual(self.client.post('/report/1/comments/', {
+        self.assertCommentContents(self.client.get(report_comments_url).json(), [])
+        self.assertEqual(self.client.post(report_comments_url, {
             'content': comments[0],
         }).status_code, 201)
-        self.assertCommentContents(self.client.get('/report/1/comments/').json(), [comments[0]])
-        self.assertEqual(self.client.post('/report/1/comments/', {
+        self.assertCommentContents(self.client.get(report_comments_url).json(), [comments[0]])
+        self.assertEqual(self.client.post(report_comments_url, {
             'content': comments[1],
         }).status_code, 201)
-        self.assertCommentContents(self.client.get('/report/1/comments/').json(), [comments[1], comments[0]])
-        self.assertEqual(self.client.post('/report/1/comments/', {
+        self.assertCommentContents(self.client.get(report_comments_url).json(), [comments[1], comments[0]])
+        self.assertEqual(self.client.post(report_comments_url, {
             'content': comments[2],
         }).status_code, 201)
-        self.assertCommentContents(self.client.get('/report/1/comments/').json(), [comments[2], comments[1], comments[0]])
+        self.assertCommentContents(self.client.get(report_comments_url).json(), [comments[2], comments[1], comments[0]])
         self.assertEqual(self.client.post('/logout/').status_code, 200)
         self.assertEqual(self.client.post('/login/', {
             'email': self.dev.email,
             'password': 'devpassword',
         }).status_code, 200)
-        self.assertCommentContents(self.client.get('/report/1/comments/').json(), [comments[2], comments[1], comments[0]])
-        self.assertEqual(self.client.post('/report/1/comments/', {
+        self.assertCommentContents(self.client.get(report_comments_url).json(), [comments[2], comments[1], comments[0]])
+        self.assertEqual(self.client.post(report_comments_url, {
             'content': comments[2],
         }).status_code, 201)
-        self.assertCommentContents(self.client.get('/report/1/comments/').json(), [comments[2], comments[2], comments[1], comments[0]])
+        self.assertCommentContents(self.client.get(report_comments_url).json(), [comments[2], comments[2], comments[1], comments[0]])

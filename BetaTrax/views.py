@@ -334,7 +334,7 @@ class ProductsView(APIView):
         except EmptyPage:
             return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Page out of range"})
         
-        products = list(page_obj.object_list.values('id', 'name', 'has_owner', 'created_at', 'updated_at'))
+        products = list(page_obj.object_list.values('id', 'name', 'has_owner'))
         return Response(status=status.HTTP_200_OK, data={"products": products})
 
     @logged_in_check

@@ -1,7 +1,12 @@
-from rest_framework.test import APITestCase
-from BetaTrax.models import Employee, Product, Report, ReportStatus, ReportAction
+from rest_framework.test import APITestCase, APIClient
+from django_tenants.test.cases import TenantTestCase
+from BetaTrax.models import Employee, Product, Report
 
-class TestView(APITestCase):
+class TestView(APITestCase, TenantTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = APIClient(HTTP_HOST='tenant.test.com')
+
     def assertReportTitles(self, response, reports):
         n = len(reports)
         if len(response['reports']) != n:
@@ -61,10 +66,12 @@ class TestView(APITestCase):
         self.assertEqual(self.client.get('/report/?status=KALTSIT&sort=-priority').status_code, 400)
         self.assertEqual(self.client.get('/report/?page=p').status_code, 400)
         self.assertEqual(self.client.get('/report/?page=2').status_code, 400)
-
-        self.assertEqual(self.client.get('/report/14/').status_code, 404)
-        self.assertReportTitle(self.client.get('/report/1/').json(), reports[0])
-        self.assertReportTitle(self.client.get('/report/2/').json(), reports[1])
+        report_1_id = Report.objects.get(title=reports[0]['title'], product=self.product).id
+        report_2_id = Report.objects.get(title=reports[1]['title'], product=self.product).id
+        missing_report_id = max(report_1_id, report_2_id) + 1000
+        self.assertEqual(self.client.get(f'/report/{missing_report_id}/').status_code, 404)
+        self.assertReportTitle(self.client.get(f'/report/{report_1_id}/').json(), reports[0])
+        self.assertReportTitle(self.client.get(f'/report/{report_2_id}/').json(), reports[1])
         self.assertEqual(self.client.post('/logout/').status_code, 200)
         self.assertEqual(self.client.get('/report/').status_code, 403)
 
@@ -89,6 +96,7 @@ class TestView(APITestCase):
         }).status_code, 200)
 
         # Create and open reports, assign and fix many of them by the developer.
+        report_ids = []
         for i in range(33):
             response = self.client.post('/report/', {
                 'title': f'Report {i+1}',
@@ -98,9 +106,10 @@ class TestView(APITestCase):
                 'tester_id': f'tester {i+1}',
             })
             self.assertEqual(response.status_code, 201)
+            report_ids.append(Report.objects.get(title=f'Report {i+1}', product=self.product).id)
 
             # Open the report as product owner.
-            self.assertEqual(self.client.patch(f'/report/{i+1}/', {
+            self.assertEqual(self.client.patch(f'/report/{report_ids[-1]}/', {
                 'action': 'OPEN',
                 'severity': 'LOW',
                 'priority': 'LOW',
@@ -113,7 +122,7 @@ class TestView(APITestCase):
             'password': 'devpassword2',
         }).status_code, 200)
 
-        for report_id in range(1, 34):
+        for report_id in report_ids:
             self.assertEqual(self.client.patch(f'/report/{report_id}/', {'action': 'ASSIGN'}).status_code, 200)
             self.assertEqual(self.client.patch(f'/report/{report_id}/', {'action': 'FIX'}).status_code, 200)
 
@@ -124,7 +133,7 @@ class TestView(APITestCase):
         }).status_code, 200)
 
         # Reopen one report to create a reopen count.
-        self.assertEqual(self.client.patch('/report/1/', {'action': 'REOPEN'}).status_code, 200)
+        self.assertEqual(self.client.patch(f'/report/{report_ids[0]}/', {'action': 'REOPEN'}).status_code, 200)
 
         # Request developer effectiveness.
         response = self.client.get(f'/employee/{self.dev.id}/effectiveness/')

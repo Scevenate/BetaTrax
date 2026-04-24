@@ -31,20 +31,32 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-INSTALLED_APPS = [
-    'django.contrib.admin',
+SHARED_APPS = [
+    'django_tenants',
+    'Tenants',
+    'rest_framework',
+    'django.contrib.staticfiles',
+]
+
+TENANT_APPS = [
+    'BetaTrax',
+    'django.contrib.admin', # auth is by BetaTrax. It's scoped inside.
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'BetaTrax',
-    'rest_framework',
 ]
+
+INSTALLED_APPS = SHARED_APPS + TENANT_APPS
+
+TENANT_MODEL = 'Tenants.Tenant'
+
+TENANT_DOMAIN_MODEL = 'Tenants.Domain'
 
 AUTH_USER_MODEL = 'BetaTrax.Employee'
 
 MIDDLEWARE = [
+    'django_tenants.middleware.TenantMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -77,25 +89,20 @@ WSGI_APPLICATION = 'project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-if os.getenv('POSTGRES_NAME'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('POSTGRES_NAME'),
-            'USER': os.getenv('POSTGRES_USER'),
-            'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-            'HOST': os.getenv('POSTGRES_HOST'),
-            'PORT': os.getenv('POSTGRES_PORT'),
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django_tenants.postgresql_backend',
+        'NAME': os.getenv('POSTGRES_NAME') or 'postgres',
+        'USER': os.getenv('POSTGRES_USER') or 'postgres',
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD') or 'postgres',
+        'HOST': os.getenv('POSTGRES_HOST') or 'localhost',
+        'PORT': os.getenv('POSTGRES_PORT') or '5432',
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+}
 
+DATABASE_ROUTERS = (
+    'django_tenants.routers.TenantSyncRouter',
+)
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

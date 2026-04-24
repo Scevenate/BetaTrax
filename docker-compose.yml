@@ -1,6 +1,7 @@
 services:
   betatrax:
     build: .
+    container_name: betatrax
     environment:
       - POSTGRES_NAME=betatrax
       - POSTGRES_USER=betatrax
@@ -13,12 +14,14 @@ services:
     depends_on:
       - postgres
     volumes:
-      - ./data/migrations:/app/BetaTrax/migrations
+      - ./data/BetaTrax:/app/BetaTrax/migrations
+      - ./data/Tenants:/app/Tenants/migrations
   postgres:
     image: postgres:18
     environment:
       - POSTGRES_USER=betatrax
       - POSTGRES_PASSWORD=betatrax
       - POSTGRES_DB=betatrax
+      - POSTGRES_PORT=5432
     volumes:
       - ./data/postgres:/var/lib/postgresql

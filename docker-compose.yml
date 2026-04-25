@@ -1,4 +1,17 @@
 services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./data/staticfiles:/app
+    restart: always
+    depends_on:
+      - betatrax
+      - swagger-ui
+
   betatrax:
     build: .
     container_name: betatrax
@@ -9,15 +22,19 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - DJANGO_PORT=8000
-    ports:
-      - 8000:8000
+      - SET_DEFAULT_TENANT=True
+      - DEFAULT_TENANT_SCHEMA=default
+      - DEFAULT_TENANT_NAME=default
+      - DEFAULT_TENANT_DOMAIN=localhost
     depends_on:
       - postgres
     volumes:
       - ./data/BetaTrax:/app/BetaTrax/migrations
       - ./data/Tenants:/app/Tenants/migrations
+      - ./data/staticfiles:/app/staticfiles
   postgres:
     image: postgres:18
+    container_name: postgres
     environment:
       - POSTGRES_USER=betatrax
       - POSTGRES_PASSWORD=betatrax
@@ -25,3 +42,11 @@ services:
       - POSTGRES_PORT=5432
     volumes:
       - ./data/postgres:/var/lib/postgresql
+  
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    environment:
+      - SWAGGER_JSON=/app/schema.yml
+    volumes:
+      - ./schema.yml:/app/schema.yml

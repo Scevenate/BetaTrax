@@ -4,9 +4,8 @@
 
 > [!WARNING]
 > The default configuration is meant for development environment or internal use. When deployed in production, make sure:
-> 1. Replace `SECRET_KEY`, disable `DEBUG`, configure `ALLOWED_HOSTS` in `project/settings.py`.
-> 2. Setup static path `STATIC_ROOT` in `project/settings.py`, deploy static files collected from `uv run manage.py collectstatic` separately.
-> 3. Configure a reverse proxy server with proper rate limiting protections on sensitive interfaces, like `admin/` and `login/`.
+> 1. Replace `SECRET_KEY`, disable `DEBUG`, configure `ALLOWED_HOSTS` and CSRF settings in `project/settings.py`.
+> 2. Configure proper insulation / rate limiting for nginx gateway on sensitive interfaces, like `admin/`, `login/`, `docs/`.
 
 ### Docker
 

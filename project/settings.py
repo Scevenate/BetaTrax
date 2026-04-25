@@ -55,6 +55,8 @@ TENANT_DOMAIN_MODEL = 'Tenants.Domain'
 
 AUTH_USER_MODEL = 'BetaTrax.Employee'
 
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8080'] # As needed by built in apps that still do CSRF
+
 MIDDLEWARE = [
     'django_tenants.middleware.TenantMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -139,3 +141,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = BASE_DIR / "staticfiles"

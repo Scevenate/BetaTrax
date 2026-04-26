@@ -76,69 +76,205 @@ class TestView(APITestCase, TenantTestCase):
         self.assertEqual(self.client.get('/report/').status_code, 403)
 
     def test_developer_effectiveness_metric(self):
-        self.product = Product.objects.create(name='Metric Product')
-        self.owner = Employee.objects.create_user(
-            email='owner2@test.com',
-            password='ownerpassword2',
-            role='PRODUCT_OWNER',
-            product=self.product.id,
-        )
+        """Test all branches of DeveloperEffectivenessView authorization."""
+        # === Branch 1: Superuser can access any developer's effectiveness ===
+        self.product = Product.objects.create(name='Superuser Test Product')
         self.dev = Employee.objects.create_user(
-            email='dev2@test.com',
-            password='devpassword2',
+            email='dev_super@test.com',
+            password='devpassword',
             role='DEVELOPER',
             product=self.product.id,
         )
+        self.superuser = Employee.objects.create_superuser(
+            email='superuser@test.com',
+            password='superpassword',
+        )
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.superuser.email,
+            'password': 'superpassword',
+        }).status_code, 200)
+        response = self.client.get(f'/employee/{self.dev.id}/effectiveness/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
 
+        # === Branch 2: Developer can access their own effectiveness ===
+        self.dev_own = Employee.objects.create_user(
+            email='dev_own@test.com',
+            password='devpassword',
+            role='DEVELOPER',
+            product=self.product.id,
+        )
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.dev_own.email,
+            'password': 'devpassword',
+        }).status_code, 200)
+        response = self.client.get(f'/employee/{self.dev_own.id}/effectiveness/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
+
+        # === Branch 3: Developer cannot access another developer's effectiveness ===
+        self.dev_other = Employee.objects.create_user(
+            email='dev_other@test.com',
+            password='devpassword',
+            role='DEVELOPER',
+            product=self.product.id,
+        )
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.dev_own.email,
+            'password': 'devpassword',
+        }).status_code, 200)
+        response = self.client.get(f'/employee/{self.dev_other.id}/effectiveness/')
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
+
+        # === Branch 4: Product owner can access developer's from same product ===
+        self.product2 = Product.objects.create(name='Same Product')
+        self.owner = Employee.objects.create_user(
+            email='owner_same@test.com',
+            password='ownerpassword',
+            role='PRODUCT_OWNER',
+            product=self.product2.id,
+        )
+        self.dev_same = Employee.objects.create_user(
+            email='dev_same@test.com',
+            password='devpassword',
+            role='DEVELOPER',
+            product=self.product2.id,
+        )
         self.assertEqual(self.client.post('/login/', {
             'email': self.owner.email,
-            'password': 'ownerpassword2',
+            'password': 'ownerpassword',
+        }).status_code, 200)
+        response = self.client.get(f'/employee/{self.dev_same.id}/effectiveness/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
+
+        # === Branch 5: Product owner cannot access developer's from different product ===
+        self.product3 = Product.objects.create(name='Different Product')
+        self.owner_diff = Employee.objects.create_user(
+            email='owner_diff@test.com',
+            password='ownerpassword',
+            role='PRODUCT_OWNER',
+            product=self.product3.id,
+        )
+        self.dev_diff = Employee.objects.create_user(
+            email='dev_diff@test.com',
+            password='devpassword',
+            role='DEVELOPER',
+            product=self.product.id,  # different product
+        )
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.owner_diff.email,
+            'password': 'ownerpassword',
+        }).status_code, 200)
+        response = self.client.get(f'/employee/{self.dev_diff.id}/effectiveness/')
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
+
+        # === Branch 6: User with no role (invalid role) cannot access developer effectiveness ===
+        self.user_no_role = Employee.objects.create_user(
+            email='norole@test.com',
+            password='norolepassword',
+            role='',  # empty role is invalid
+            product=self.product2.id,
+        )
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.user_no_role.email,
+            'password': 'norolepassword',
+        }).status_code, 200)
+        response = self.client.get(f'/employee/{self.dev_same.id}/effectiveness/')
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
+        
+        # ============================================================
+        # COUNTING PART: Test all 4 effectiveness classifications
+        # ============================================================
+
+        self.product_count = Product.objects.create(name='Count Product')
+        self.owner_count = Employee.objects.create_user(
+            email='owner_count@test.com',
+            password='ownerpassword',
+            role='PRODUCT_OWNER',
+            product=self.product_count.id,
+        )
+        self.dev_count = Employee.objects.create_user(
+            email='dev_count@test.com',
+            password='devpassword',
+            role='DEVELOPER',
+            product=self.product_count.id,
+        )
+
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.owner_count.email,
+            'password': 'ownerpassword',
         }).status_code, 200)
 
-        # Create and open reports, assign and fix many of them by the developer.
+        # --- Branch 7: "Insufficient data" + ratio=None (0 fixes) ---
+        response = self.client.get(f'/employee/{self.dev_count.id}/effectiveness/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['fixed_count'], 0)
+        self.assertIsNone(response.json()['ratio'])
+        self.assertEqual(response.json()['effectiveness'], 'Insufficient data')
+
+        # Create 33 reports and open them
         report_ids = []
         for i in range(33):
             response = self.client.post('/report/', {
                 'title': f'Report {i+1}',
                 'description': f'Description {i+1}',
                 'reproduce_steps': f'Steps {i+1}',
-                'product': self.product.id,
+                'product': self.product_count.id,
                 'tester_id': f'tester {i+1}',
             })
             self.assertEqual(response.status_code, 201)
-            report_ids.append(Report.objects.get(title=f'Report {i+1}', product=self.product).id)
-
-            # Open the report as product owner.
+            report_ids.append(Report.objects.get(title=f'Report {i+1}', product=self.product_count).id)
             self.assertEqual(self.client.patch(f'/report/{report_ids[-1]}/', {
                 'action': 'OPEN',
                 'severity': 'LOW',
                 'priority': 'LOW',
             }).status_code, 200)
 
-        # Log in as developer to assign and fix reports.
+        # Log in as developer and fix all 33
         self.assertEqual(self.client.post('/logout/').status_code, 200)
         self.assertEqual(self.client.post('/login/', {
-            'email': self.dev.email,
-            'password': 'devpassword2',
+            'email': self.dev_count.email,
+            'password': 'devpassword',
         }).status_code, 200)
-
         for report_id in report_ids:
             self.assertEqual(self.client.patch(f'/report/{report_id}/', {'action': 'ASSIGN'}).status_code, 200)
             self.assertEqual(self.client.patch(f'/report/{report_id}/', {'action': 'FIX'}).status_code, 200)
 
+        # Back to owner to view results
         self.assertEqual(self.client.post('/logout/').status_code, 200)
         self.assertEqual(self.client.post('/login/', {
-            'email': self.owner.email,
-            'password': 'ownerpassword2',
+            'email': self.owner_count.email,
+            'password': 'ownerpassword',
         }).status_code, 200)
 
-        # Reopen one report to create a reopen count.
-        self.assertEqual(self.client.patch(f'/report/{report_ids[0]}/', {'action': 'REOPEN'}).status_code, 200)
-
-        # Request developer effectiveness.
-        response = self.client.get(f'/employee/{self.dev.id}/effectiveness/')
+        # --- Branch 8: "Good" (33 fixes, 0 reopens, ratio=0.0 < 1/32) ---
+        response = self.client.get(f'/employee/{self.dev_count.id}/effectiveness/')
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['fixed_count'], 33)
-        self.assertEqual(data['reopened_count'], 1)
-        self.assertEqual(data['effectiveness'], 'Good')
+        self.assertEqual(response.json()['fixed_count'], 33)
+        self.assertEqual(response.json()['reopened_count'], 0)
+        self.assertEqual(response.json()['effectiveness'], 'Good')
+
+        # --- Branch 9: "Fair" (reopen 3 reports: ratio=3/33=0.09, between 1/32 and 1/8) ---
+        self.assertEqual(self.client.post('/logout/').status_code, 200)
+        self.assertEqual(self.client.post('/login/', {
+            'email': self.owner_count.email,
+            'password': 'ownerpassword',
+        }).status_code, 200)
+        for i in range(3):
+            self.assertEqual(self.client.patch(f'/report/{report_ids[i]}/', {'action': 'REOPEN'}).status_code, 200)
+        response = self.client.get(f'/employee/{self.dev_count.id}/effectiveness/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['reopened_count'], 3)
+        self.assertEqual(response.json()['effectiveness'], 'Fair')
+
+        # --- Branch 10: "Poor" (reopen 2 more: ratio=5/33=0.15 > 1/8) ---
+        for i in range(3, 5):
+            self.assertEqual(self.client.patch(f'/report/{report_ids[i]}/', {'action': 'REOPEN'}).status_code, 200)
+        response = self.client.get(f'/employee/{self.dev_count.id}/effectiveness/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['reopened_count'], 5)
+        self.assertEqual(response.json()['effectiveness'], 'Poor')

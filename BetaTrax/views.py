@@ -21,14 +21,14 @@ def logged_in_check(func):
     @wraps(func)
     def wrapper(self, request: Request, *args, **kwargs) -> Response:
         if not request.user.is_authenticated:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authenticated"})
         return func(self, request, *args, **kwargs)
     return wrapper
 
 class LoginView(APIView):
     def post(self, request: Request) -> Response:
         if request.user.is_authenticated:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User is already authenticated"})
         email = request.data.get("email")
         password = request.data.get("password")
         user = authenticate(request, email=email, password=password)
@@ -36,7 +36,7 @@ class LoginView(APIView):
             login(request, user)
             return Response(status=status.HTTP_200_OK)
         else:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "Invalid credentials"})
 
 class LogoutView(APIView):
     def post(self, request: Request) -> Response:
@@ -112,7 +112,7 @@ class ReportsView(APIView):
             
             return Response(status=status.HTTP_200_OK, data={"reports": reports})
         else:
-            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={"error": "Role not supported"})
+            return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
 
     def post(self, request: Request) -> Response:
         title = request.data.get("title")
@@ -126,7 +126,7 @@ class ReportsView(APIView):
             report = Report(status="NEW", title=title, description=description, reproduce_steps=reproduce_steps, product=product, version=version, tester_id=tester_id, tester_email=tester_email)
             report.save()
         except ValidationError as e:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": e.message_dict})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": str(e.message_dict)})
         return Response(status=status.HTTP_201_CREATED)
 
 class ReportView(APIView):
@@ -155,7 +155,7 @@ class ReportView(APIView):
                 if report.status != ReportStatus.NEW:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Action not allowed"})
                 if request.user.role != EmployeeRole.PRODUCT_OWNER:
-                    return Response(status=status.HTTP_403_FORBIDDEN)
+                    return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
                 severity = request.data.get("severity")
                 if severity is None:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Severity is required"})
@@ -180,7 +180,7 @@ class ReportView(APIView):
                 if report.status != ReportStatus.NEW:
                         return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Action not allowed"})
                 if request.user.role != EmployeeRole.PRODUCT_OWNER:
-                    return Response(status=status.HTTP_403_FORBIDDEN)
+                    return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
                 report.status = ReportStatus.REJECTED
                 report.save()
                 notify_all_testers_status(report, report.status.value)
@@ -189,7 +189,7 @@ class ReportView(APIView):
                 if report.status != ReportStatus.NEW:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Action not allowed"})
                 if request.user.role != EmployeeRole.PRODUCT_OWNER:
-                    return Response(status=status.HTTP_403_FORBIDDEN)
+                    return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
                 duplicate_of = request.data.get("duplicate_of")
                 if duplicate_of is None:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "duplicate_of must be specified"})
@@ -206,7 +206,7 @@ class ReportView(APIView):
                 if report.status != ReportStatus.OPENED and report.status != ReportStatus.REOPENED:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Action not allowed"})
                 if request.user.role != EmployeeRole.DEVELOPER:
-                    return Response(status=status.HTTP_403_FORBIDDEN)
+                    return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
                 report.assigned_to = request.user
                 report.status = ReportStatus.ASSIGNED
                 report.save()
@@ -216,7 +216,7 @@ class ReportView(APIView):
                 if report.status != ReportStatus.ASSIGNED:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Action not allowed"})
                 if request.user.role != EmployeeRole.DEVELOPER:
-                    return Response(status=status.HTTP_403_FORBIDDEN)
+                    return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
                 report.assigned_to = None
                 report.status = ReportStatus.FIXED
                 report.save()
@@ -227,7 +227,7 @@ class ReportView(APIView):
                 if report.status != ReportStatus.ASSIGNED:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Action not allowed"})
                 if request.user.role != EmployeeRole.DEVELOPER:
-                    return Response(status=status.HTTP_403_FORBIDDEN)
+                    return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
                 report.assigned_to = None
                 report.status = ReportStatus.COULDNT_REPRODUCE
                 report.save()
@@ -237,7 +237,7 @@ class ReportView(APIView):
                 if report.status != ReportStatus.FIXED:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Action not allowed"})
                 if request.user.role != EmployeeRole.PRODUCT_OWNER:
-                    return Response(status=status.HTTP_403_FORBIDDEN)
+                    return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
                 last_fix = FixRecord.objects.filter(report=report).order_by('-created_at').first()
                 fixed_by = last_fix.developer if last_fix is not None else None
                 report.assigned_to = None
@@ -250,7 +250,7 @@ class ReportView(APIView):
                 if report.status != ReportStatus.FIXED:
                     return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Action not allowed"})
                 if request.user.role != EmployeeRole.PRODUCT_OWNER:
-                    return Response(status=status.HTTP_403_FORBIDDEN)
+                    return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
                 report.assigned_to = None
                 report.status = ReportStatus.RESOLVED
                 report.save()
@@ -267,12 +267,12 @@ class DeveloperEffectivenessView(APIView):
             pass
         elif request.user.role == EmployeeRole.DEVELOPER:
             if request.user.id != developer.id:
-                return Response(status=status.HTTP_403_FORBIDDEN)
+                return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
         elif request.user.role == EmployeeRole.PRODUCT_OWNER:
             if developer.product != request.user.product:
-                return Response(status=status.HTTP_403_FORBIDDEN)
+                return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
         else:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
 
         fixed_count = FixRecord.objects.filter(developer=developer).count()
         reopened_count = ReopenRecord.objects.filter(fixed_by=developer).count()
@@ -342,15 +342,15 @@ class ProductsView(APIView):
     @logged_in_check
     def post(self, request: Request) -> Response:
         if request.user.role != EmployeeRole.PRODUCT_OWNER:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
         name = request.data.get("name")
         if name is None:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "name is required"})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Name is required"})
         product = Product(name=name)
         try:
             product.save()
         except ValidationError as e:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": e.message_dict})
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": str(e.message_dict)})
         return Response(status=status.HTTP_201_CREATED)
 
 class EmployeeView(APIView):
@@ -363,7 +363,7 @@ class EmployeeView(APIView):
     def patch(self, request: Request, id: int) -> Response:
         # ID validation
         if request.user.id != id:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            return Response(status=status.HTTP_403_FORBIDDEN, data={"error": "User not authorized"})
         employee = Employee.objects.get(id=id)
         # Product assignment
         product_id = request.data.get("product")

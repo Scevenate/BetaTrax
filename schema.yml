@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: BetaTrax API
-  version: 1.0.0
+  version: 1.0.1
   description: |
     API documentation for the BetaTrax defect report management system.
     
@@ -83,11 +83,6 @@ paths:
       responses:
         '200':
           description: Login successful
-          headers:
-            Set-Cookie:
-              schema:
-                type: string
-                example: "sessionid=...; Path=/; HttpOnly"
         '403':
           description: Invalid credentials or already authenticated
           content:
@@ -111,11 +106,6 @@ paths:
       responses:
         '200':
           description: Logout successful
-          headers:
-            Set-Cookie:
-              schema:
-                type: string
-                example: "sessionid=; Path=/; HttpOnly"
 
   /product/:
     get:
@@ -162,7 +152,7 @@ paths:
                           description: Whether product has an owner assigned
                           example: true
         '400':
-          description: Invalid page parameter
+          description: Invalid page parameter or Page out of range
           content:
             application/json:
               schema:
@@ -170,7 +160,6 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: "Invalid page parameter"
         '403':
           description: Not authenticated
           content:
@@ -209,16 +198,16 @@ paths:
         '201':
           description: Product created successfully
         '400':
-          description: Validation error
+          description: Missing name or other Validation error
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   error:
-                    type: object
+                    type: string
         '403':
-          description: Not authorized (not a PRODUCT_OWNER)
+          description: Not authenticated or Not authorized
           content:
             application/json:
               schema:
@@ -299,7 +288,7 @@ paths:
                           enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
                           example: "HIGH"
         '400':
-          description: Invalid query parameters
+          description: Invalid query parameters (sort, status, page) or Page out of range
           content:
             application/json:
               schema:
@@ -307,9 +296,8 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: "Invalid sort parameter"
         '403':
-          description: Not authenticated
+          description: Not authenticated or Not authorized
           content:
             application/json:
               schema:
@@ -381,15 +369,6 @@ paths:
           description: Report created successfully
         '400':
           description: Validation error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-        '403':
-          description: Not authenticated
           content:
             application/json:
               schema:
@@ -485,7 +464,7 @@ paths:
                     description: Employee ID of the developer assigned to fix
                     example: null
         '403':
-          description: Not authenticated or not authorized
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -571,7 +550,7 @@ paths:
         '200':
           description: Action performed successfully
         '400':
-          description: Invalid action for current status or invalid parameters
+          description: Invalid action for current status or Invalid status for changing
           content:
             application/json:
               schema:
@@ -579,9 +558,8 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: "Action not allowed"
         '403':
-          description: Not authorized (wrong role for action)
+          description: Not authenticated or Not authorized
           content:
             application/json:
               schema:
@@ -608,7 +586,6 @@ paths:
         User must be associated with the report's product.
       tags:
       - report
-      - comment
       security:
       - cookieAuth: []
       - basicAuth: []
@@ -645,7 +622,7 @@ paths:
                           type: string
                           example: "This issue is related to..."
         '403':
-          description: Not authenticated or not authorized
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -671,7 +648,6 @@ paths:
         User must be associated with the report's product.
       tags:
       - report
-      - comment
       security:
       - cookieAuth: []
       - basicAuth: []
@@ -700,7 +676,7 @@ paths:
         '201':
           description: Comment created successfully
         '400':
-          description: Validation error (content required)
+          description: Missing content
           content:
             application/json:
               schema:
@@ -708,9 +684,8 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: "content is required"
         '403':
-          description: Not authenticated or not authorized
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -793,9 +768,9 @@ paths:
 
     patch:
       operationId: employee_partial_update
-      summary: Update employee product assignment
+      summary: Update employee product assignment for himself/herself
       description: |
-        Updates the product assignment for an employee.
+        Updates the product assignment for an employee for himself/herself.
         - Users can only update their own profile
         - PRODUCT_OWNER can assign themselves to a product without an owner
         - DEVELOPER can be assigned to any product by PRODUCT_OWNER
@@ -829,7 +804,7 @@ paths:
         '200':
           description: Employee updated successfully
         '400':
-          description: Invalid request (product already has owner, or same product)
+          description: Missing product ID or product already has owner
           content:
             application/json:
               schema:
@@ -837,9 +812,8 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: "Product already has owner"
         '403':
-          description: Not authorized (cannot update other users)
+          description: Not authenticated or Not authorized
           content:
             application/json:
               schema:
@@ -848,7 +822,7 @@ paths:
                   error:
                     type: string
         '404':
-          description: Employee or product not found
+          description: Product not found
           content:
             application/json:
               schema:
@@ -926,7 +900,7 @@ paths:
                       - "Poor": Ratio >= 1/8
                     example: "Fair"
         '403':
-          description: Not authorized to view this developer's effectiveness
+          description: Not authenticated or Not authorized
           content:
             application/json:
               schema:

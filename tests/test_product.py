@@ -36,6 +36,10 @@ class TestProduct(APITestCase, TenantTestCase):
         self.assertEqual(self.client.post('/product/', {
             'name': 'Test Product 1',
         }).status_code, 201)
+
+        # test product GET
+        self.assertEqual(self.client.get('/product/')["products"][0], {"id":1, "name":'Test Product 1', "has_owner": False})
+
         self.assertEqual(self.client.post('/product/', {
             'name': 'Test Product 2',
         }).status_code, 201)

@@ -2,207 +2,956 @@ openapi: 3.0.3
 info:
   title: BetaTrax API
   version: 1.0.0
-  description: API documentation for the BetaTrax defect report management system
+  description: |
+    API documentation for the BetaTrax defect report management system.
+    
+    ## Authentication
+    - Cookie-based authentication using sessionid cookie
+    - Basic authentication supported
+    
+    ## Roles
+    - **PRODUCT_OWNER**: Can manage products, reports, and view developers
+    - **DEVELOPER**: Can view and fix assigned reports
+    
+    ## Report Status Flow
+    - NEW → OPENED/REJECTED/DUPLICATED
+    - OPENED/REOPENED → ASSIGNED
+    - ASSIGNED → FIXED/COULDNT_REPRODUCE
+    - FIXED → REOPENED/RESOLVED
+    
+    ## Actions
+    - OPEN, REJECT, DUPLICATE (Product Owner actions from NEW)
+    - ASSIGN (Developer action from OPENED/REOPENED)
+    - FIX, CANNOT_REPRODUCE (Developer action from ASSIGNED)
+    - REOPEN, RESOLVE (Product Owner action from FIXED)
+
 paths:
-  /employee/{id}/:
+  /:
     get:
-      operationId: employee_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        required: true
+      operationId: index_retrieve
+      summary: Server health check
+      description: Returns a simple message indicating the server is running.
       tags:
-      - employee
+      - health
       security:
       - cookieAuth: []
       - basicAuth: []
       - {}
       responses:
         '200':
-          description: No response body
-    patch:
-      operationId: employee_partial_update
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        required: true
-      tags:
-      - employee
-      security:
-      - cookieAuth: []
-      - basicAuth: []
-      - {}
-      responses:
-        '200':
-          description: No response body
-  /employee/{id}/effectiveness/:
-    get:
-      operationId: employee_effectiveness_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        required: true
-      tags:
-      - employee
-      security:
-      - cookieAuth: []
-      - basicAuth: []
-      - {}
-      responses:
-        '200':
-          description: No response body
+          description: Server is up and running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Server is up"
+
   /login/:
     post:
       operationId: login_create
+      summary: User login
+      description: |
+        Authenticates a user and creates a session. 
+        Returns 403 if user is already authenticated.
       tags:
-      - login
+      - auth
       security:
-      - cookieAuth: []
-      - basicAuth: []
       - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                  example: "user@example.com"
+                password:
+                  type: string
+                  format: password
+                  description: User's password
+                  example: "password123"
       responses:
         '200':
-          description: No response body
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "sessionid=...; Path=/; HttpOnly"
+        '403':
+          description: Invalid credentials or already authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
   /logout/:
     post:
       operationId: logout_create
+      summary: User logout
+      description: Logs out the current user and clears the session.
       tags:
-      - logout
+      - auth
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
       responses:
         '200':
-          description: No response body
+          description: Logout successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "sessionid=; Path=/; HttpOnly"
+
   /product/:
     get:
       operationId: product_retrieve
+      summary: List products
+      description: |
+        Returns a paginated list of all products (20 per page).
+        Requires authentication.
       tags:
       - product
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number (1-indexed)
       responses:
         '200':
-          description: No response body
+          description: List of products retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: Product ID
+                          example: 1
+                        name:
+                          type: string
+                          description: Product name
+                          example: "BetaTrax"
+                        has_owner:
+                          type: boolean
+                          description: Whether product has an owner assigned
+                          example: true
+        '400':
+          description: Invalid page parameter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid page parameter"
+        '403':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
     post:
       operationId: product_create
+      summary: Create product
+      description: |
+        Creates a new product. Only accessible to PRODUCT_OWNER role.
       tags:
       - product
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+                  description: Product name
+                  example: "New Product"
       responses:
-        '200':
-          description: No response body
+        '201':
+          description: Product created successfully
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+        '403':
+          description: Not authorized (not a PRODUCT_OWNER)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
   /report/:
     get:
       operationId: report_retrieve
+      summary: List reports
+      description: |
+        Returns a paginated list of reports (20 per page).
+        - PRODUCT_OWNER sees reports for their product only
+        - DEVELOPER sees all reports for their product
       tags:
       - report
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term to filter by report title
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: ["-updated_at", "-severity", "-priority"]
+            default: "-updated_at"
+          description: Sort field (prefix with - for descending)
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: ["NEW", "OPENED", "REJECTED", "DUPLICATED", "ASSIGNED", "FIXED", "COULDNT_REPRODUCE", "REOPENED", "RESOLVED"]
+          description: Filter by report status
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number (1-indexed)
       responses:
         '200':
-          description: No response body
+          description: List of reports retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        title:
+                          type: string
+                          example: "Login page crash"
+                        status:
+                          type: string
+                          enum: ["NEW", "OPENED", "REJECTED", "DUPLICATED", "ASSIGNED", "FIXED", "COULDNT_REPRODUCE", "REOPENED", "RESOLVED"]
+                          example: "NEW"
+                        severity:
+                          type: string
+                          nullable: true
+                          enum: ["CRITICAL", "MAJOR", "MINOR", "LOW"]
+                          example: "MAJOR"
+                        priority:
+                          type: string
+                          nullable: true
+                          enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+                          example: "HIGH"
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid sort parameter"
+        '403':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
     post:
       operationId: report_create
+      summary: Create report
+      description: |
+        Creates a new defect report with status NEW.
+        Requires authentication.
       tags:
       - report
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - reproduce_steps
+                - product
+                - tester_id
+              properties:
+                title:
+                  type: string
+                  maxLength: 50
+                  description: Report title
+                  example: "Login page crash"
+                description:
+                  type: string
+                  description: Detailed description of the defect
+                  example: "The login page crashes when entering special characters"
+                reproduce_steps:
+                  type: string
+                  description: Steps to reproduce the defect
+                  example: "1. Go to login page\n2. Enter special characters in username"
+                product:
+                  type: integer
+                  description: Product ID
+                  example: 1
+                version:
+                  type: string
+                  maxLength: 20
+                  nullable: true
+                  description: Product version where defect was found
+                  example: "1.0.0"
+                tester_id:
+                  type: string
+                  maxLength: 20
+                  description: Tester identifier
+                  example: "tester001"
+                tester_email:
+                  type: string
+                  format: email
+                  nullable: true
+                  description: Tester email address
+                  example: "tester@example.com"
       responses:
-        '200':
-          description: No response body
+        '201':
+          description: Report created successfully
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+        '403':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
   /report/{id}/:
     get:
       operationId: report_retrieve_2
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        required: true
+      summary: Get report details
+      description: |
+        Returns full details of a specific report.
+        User must be associated with the report's product.
       tags:
       - report
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Report ID
+          example: 1
       responses:
         '200':
-          description: No response body
+          description: Report details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  status:
+                    type: string
+                    enum: ["NEW", "OPENED", "REJECTED", "DUPLICATED", "ASSIGNED", "FIXED", "COULDNT_REPRODUCE", "REOPENED", "RESOLVED"]
+                    example: "NEW"
+                  created_at:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T00:00:00Z"
+                  updated_at:
+                    type: string
+                    format: date-time
+                    example: "2024-01-01T00:00:00Z"
+                  severity:
+                    type: string
+                    nullable: true
+                    enum: ["CRITICAL", "MAJOR", "MINOR", "LOW"]
+                    example: "MAJOR"
+                  priority:
+                    type: string
+                    nullable: true
+                    enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+                    example: "HIGH"
+                  duplicate_of:
+                    type: integer
+                    nullable: true
+                    description: ID of the report this is a duplicate of
+                    example: null
+                  title:
+                    type: string
+                    example: "Login page crash"
+                  description:
+                    type: string
+                    example: "The login page crashes..."
+                  reproduce_steps:
+                    type: string
+                    example: "1. Go to login page..."
+                  product:
+                    type: integer
+                    example: 1
+                  version:
+                    type: string
+                    nullable: true
+                    example: "1.0.0"
+                  tester_id:
+                    type: string
+                    example: "tester001"
+                  tester_email:
+                    type: string
+                    nullable: true
+                    example: "tester@example.com"
+                  assigned_to:
+                    type: integer
+                    nullable: true
+                    description: Employee ID of the developer assigned to fix
+                    example: null
+        '403':
+          description: Not authenticated or not authorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
     patch:
       operationId: report_partial_update
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        required: true
+      summary: Update report status
+      description: |
+        Performs actions on a report based on the current status and user role.
+        
+        ## Actions by Status
+        
+        **From NEW status (Product Owner only):**
+        - OPEN: Set severity and priority, change to OPENED
+        - REJECT: Change to REJECTED
+        - DUPLICATE: Mark as duplicate of another report
+        
+        **From OPENED/REOPENED status (Developer only):**
+        - ASSIGN: Assign report to self, change to ASSIGNED
+        
+        **From ASSIGNED status (Developer only):**
+        - FIX: Mark as fixed, change to FIXED
+        - CANNOT_REPRODUCE: Change to COULDNT_REPRODUCE
+        
+        **From FIXED status (Product Owner only):**
+        - REOPEN: Reopen the report, change to REOPENED
+        - RESOLVE: Resolve the report, change to RESOLVED
       tags:
       - report
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Report ID
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: ["OPEN", "REJECT", "DUPLICATE", "ASSIGN", "FIX", "CANNOT_REPRODUCE", "REOPEN", "RESOLVE"]
+                  description: Action to perform on the report
+                  example: "OPEN"
+                severity:
+                  type: string
+                  enum: ["CRITICAL", "MAJOR", "MINOR", "LOW"]
+                  description: Required for OPEN action
+                  example: "MAJOR"
+                priority:
+                  type: string
+                  enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+                  description: Required for OPEN action
+                  example: "HIGH"
+                duplicate_of:
+                  type: integer
+                  description: Required for DUPLICATE action - ID of the original report
+                  example: 5
       responses:
         '200':
-          description: No response body
+          description: Action performed successfully
+        '400':
+          description: Invalid action for current status or invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Action not allowed"
+        '403':
+          description: Not authorized (wrong role for action)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
   /report/{id}/comments/:
     get:
       operationId: report_comments_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        required: true
+      summary: Get report comments
+      description: |
+        Returns all comments for a specific report, ordered by creation date (newest first).
+        User must be associated with the report's product.
       tags:
       - report
+      - comment
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Report ID
+          example: 1
       responses:
         '200':
-          description: No response body
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        employee:
+                          type: integer
+                          nullable: true
+                          description: ID of the employee who made the comment
+                          example: 2
+                        content:
+                          type: string
+                          example: "This issue is related to..."
+        '403':
+          description: Not authenticated or not authorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
     post:
       operationId: report_comments_create
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        required: true
+      summary: Add comment to report
+      description: |
+        Adds a new comment to a specific report.
+        User must be associated with the report's product.
       tags:
       - report
+      - comment
       security:
       - cookieAuth: []
       - basicAuth: []
-      - {}
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Report ID
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  description: Comment content
+                  example: "This issue can be reproduced by..."
+      responses:
+        '201':
+          description: Comment created successfully
+        '400':
+          description: Validation error (content required)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "content is required"
+        '403':
+          description: Not authenticated or not authorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /employee/{id}/:
+    get:
+      operationId: employee_retrieve
+      summary: Get employee details
+      description: |
+        Returns details of a specific employee.
+        Requires authentication.
+      tags:
+      - employee
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Employee ID
+          example: 1
       responses:
         '200':
-          description: No response body
+          description: Employee details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  email:
+                    type: string
+                    format: email
+                    example: "user@example.com"
+                  role:
+                    type: string
+                    enum: ["PRODUCT_OWNER", "DEVELOPER"]
+                    example: "DEVELOPER"
+                  product:
+                    type: integer
+                    nullable: true
+                    description: ID of the product the employee is associated with
+                    example: 1
+        '403':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+    patch:
+      operationId: employee_partial_update
+      summary: Update employee product assignment
+      description: |
+        Updates the product assignment for an employee.
+        - Users can only update their own profile
+        - PRODUCT_OWNER can assign themselves to a product without an owner
+        - DEVELOPER can be assigned to any product by PRODUCT_OWNER
+      tags:
+      - employee
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Employee ID
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - product
+              properties:
+                product:
+                  type: integer
+                  description: ID of the product to assign
+                  example: 1
+      responses:
+        '200':
+          description: Employee updated successfully
+        '400':
+          description: Invalid request (product already has owner, or same product)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Product already has owner"
+        '403':
+          description: Not authorized (cannot update other users)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Employee or product not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /employee/{id}/effectiveness/:
+    get:
+      operationId: employee_effectiveness_retrieve
+      summary: Get developer effectiveness
+      description: |
+        Returns effectiveness metrics for a developer.
+        
+        **Access Control:**
+        - Superusers can view any developer's effectiveness
+        - Developers can only view their own effectiveness
+        - PRODUCT_OWNER can only view developers in their product
+        
+        **Effectiveness Calculation:**
+        - Based on ratio of reopened fixes to total fixes
+        - Requires at least 20 fixed reports to calculate
+        - Ratings: Good (< 1/32), Fair (< 1/8), Poor (>= 1/8)
+      tags:
+      - employee
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: Employee ID (must be a DEVELOPER)
+          example: 1
+      responses:
+        '200':
+          description: Developer effectiveness retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  developer_id:
+                    type: integer
+                    example: 1
+                  email:
+                    type: string
+                    format: email
+                    example: "developer@example.com"
+                  fixed_count:
+                    type: integer
+                    description: Number of reports fixed by the developer
+                    example: 25
+                  reopened_count:
+                    type: integer
+                    description: Number of times the developer's fixes were reopened
+                    example: 2
+                  ratio:
+                    type: number
+                    format: float
+                    nullable: true
+                    description: Ratio of reopened to fixed (reopened_count / fixed_count)
+                    example: 0.08
+                  effectiveness:
+                    type: string
+                    enum: ["Insufficient data", "Good", "Fair", "Poor"]
+                    description: |
+                      Effectiveness rating based on ratio:
+                      - "Insufficient data": Less than 20 fixes
+                      - "Good": Ratio < 1/32
+                      - "Fair": Ratio < 1/8
+                      - "Poor": Ratio >= 1/8
+                    example: "Fair"
+        '403':
+          description: Not authorized to view this developer's effectiveness
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Developer not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
 components:
   securitySchemes:
     basicAuth:
       type: http
       scheme: basic
+      description: Basic authentication using email and password
     cookieAuth:
       type: apiKey
       in: cookie
       name: sessionid
+      description: Django session cookie for authentication

@@ -13,6 +13,10 @@
 
 This spins up the app with a postgres service. Please refer to `docker-compose.yml` for common configurations.
 
+> [!NOTE]
+> 1. BASE_URL is http://localhost:8080/ (localhost is the default tenant domain)
+> 2. Access swagger-ui by http://localhost:8080/docs/, 
+
 ### Manual
 
 The app also supports manual deployment. It falls back to sqlite (in repo root dir) when postgres config is not provided.
@@ -98,23 +102,15 @@ The app also supports manual deployment. It falls back to sqlite (in repo root d
 - `POST /product/` create product (requires PRODUCT_OWNER role)
   - Required field: `name`
 
-## 4. Verification / Testing
+## 4. Verification / Testing (Sprint 3)
 
 ### Django automated test
 - Run all tests:
     - `python manage.py test tests`
 - For specific module:
   - `python manage.py test tests.test_crud`    : life-cycle transitions and permission checks.
-  - `python manage.py test tests.test_view`    : filters, status querying, pagination, report details.
+  - `python manage.py test tests.test_view`    : filters, status querying, pagination, report details, developer effectiveness metric.
   - `python manage.py test tests.test_comment` : comment creation/listing behavior.
   - `python manage.py test tests.test_product` : product creation/listing/assignment behavior.
 
 (These confirm life-cycle transitions, role-based access, report filtering, and comment behavior.)
-
-### Manual smoke tests
-1. Create user via shell or admin.
-2. Create product via `POST /product/` and assign via `PATCH /employee/<id>/` with logged in as Product Owner role.
-3. Create report via `POST /report/`.
-4. Log in as owner and run a state transition (OPEN, ASSIGN, etc.) using `PATCH /report/<id>/`.
-5. Log in as developer and run developer actions (FIX/CANNOT_REPRODUCE).
-6. Confirm `GET /report/` results and `/report/<id>/comments/`.

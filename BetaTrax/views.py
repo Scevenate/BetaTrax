@@ -329,7 +329,7 @@ class ProductsView(APIView):
         except (ValueError, AssertionError):
             return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Invalid page parameter"})
     
-        products = Product.objects.all()
+        products = Product.objects.all().order_by('id')
         paginator = Paginator(products, 20)
         try:
             page_obj = paginator.page(page)

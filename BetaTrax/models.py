@@ -3,20 +3,25 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from enum import Enum
 
 class EmployeeManager(BaseUserManager):
-    def create_user(self, email, password, product=None,**extra_fields):
+    def create_user(self, email, password, product=None, **extra_fields):
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
-        if product is not None:
+        if product is not None and not isinstance(product, Product):
             product = Product.objects.get(id=product)
         user = self.model(email=email, product=product, **extra_fields)
         user.set_password(password)
-        user.save()
+        user.save(using=self._db)
         return user
 
     def create_superuser(self, email, password, product=None, **extra_fields):
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_active', True)
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
         return self.create_user(email, password, product, **extra_fields)
 
 class EmployeeRole(models.TextChoices):

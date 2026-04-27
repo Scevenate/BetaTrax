@@ -114,5 +114,24 @@ The app also supports manual deployment. It falls back to sqlite (in repo root d
 
 (These confirm life-cycle transitions, role-based access, report filtering, and comment behavior.)
 
+### Django Automated Test with Coverage Tool
+- Install coverage tool:
+  - `docker exec betatrax uv pip install coverage`
+- Run all tests with branch coverage:
+    - `docker exec betatrax uv run coverage run --branch manage.py test tests`
+- Run specific module with coverage:
+  - `docker exec betatrax uv run coverage run --branch manage.py test tests.test_crud`    : life-cycle transitions and permission checks.
+  - `docker exec betatrax uv run coverage run --branch manage.py test tests.test_view`    : filters, status querying, pagination, report details, developer effectiveness metric.
+  - `docker exec betatrax uv run coverage run --branch manage.py test tests.test_comment` : comment creation/listing behavior.
+  - `docker exec betatrax uv run coverage run --branch manage.py test tests.test_product` : product creation/listing/assignment behavior.
+
+- Generate text coverage report:
+  - `docker exec betatrax uv run coverage report -m`  : Text summary with missing lines
+- Generate HTML coverage report:
+  - `docker exec betatrax uv run coverage html`
+  - `docker cp betatrax:/app/htmlcov ./htmlcov`
+- Open the coverage report in the default web browser:
+  - `start htmlcov/index.html`
+
 ### API documentation
 Access swagger-ui by `http://localhost:8080/docs/`

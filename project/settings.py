@@ -55,14 +55,14 @@ TENANT_DOMAIN_MODEL = 'Tenants.Domain'
 
 AUTH_USER_MODEL = 'BetaTrax.Employee'
 
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8080'] # As needed by built in apps that still do CSRF
+CSRF_TRUSTED_ORIGINS = ['http://*.localhost:8080'] # No CSRF
 
 MIDDLEWARE = [
     'django_tenants.middleware.TenantMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware', # CSRF is disabled until frontend implementation
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

@@ -24,7 +24,8 @@ def set_default_tenant():
 
     Domain.objects.update_or_create(
         domain=domain_name,
-        defaults={"tenant": tenant, "is_primary": True},
+        tenant=tenant,
+        defaults={"is_primary": True},
     )
 
 manage('makemigrations', 'Tenants')

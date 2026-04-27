@@ -30,7 +30,7 @@ class Employee(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     role = models.CharField(max_length=20, choices=EmployeeRole)
-    product = models.ForeignKey("Product", null=True, on_delete=models.SET_NULL)
+    product = models.ForeignKey("Product", null=True, blank=True, on_delete=models.SET_NULL)
     objects = EmployeeManager()
 
     USERNAME_FIELD = 'email'
@@ -94,17 +94,17 @@ class Report(models.Model):
     status = models.CharField(max_length=20, choices=ReportStatus)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    severity = models.IntegerField(choices=ReportSeverity, null=True) # Null iff status = "NEW"
-    priority = models.IntegerField(choices=ReportPriority, null=True) # Null iff status = "NEW"
-    duplicate_of = models.ForeignKey("self", on_delete=models.CASCADE, null=True) # Null iff status != "DUPLICATE"
+    severity = models.IntegerField(choices=ReportSeverity, null=True, blank=True) # Null iff status = "NEW"
+    priority = models.IntegerField(choices=ReportPriority, null=True, blank=True) # Null iff status = "NEW"
+    duplicate_of = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True) # Null iff status != "DUPLICATE"
     title = models.CharField(max_length=50)
     description = models.TextField()
     reproduce_steps = models.TextField()
     product = models.ForeignKey("Product", on_delete=models.CASCADE)
-    version = models.CharField(max_length=20, null=True)
+    version = models.CharField(max_length=20, null=True, blank=True)
     tester_id = models.CharField(max_length=20)
-    tester_email = models.EmailField(null=True) # Set on creation, might be null
-    assigned_to = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True) # Null iff not "ASSIGNED" / employee deleted
+    tester_email = models.EmailField(null=True, blank=True) # Set on creation, might be null
+    assigned_to = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, blank=True) # Null iff not "ASSIGNED" / employee deleted
 
     def __str__(self):
         return f"{self.id:04d} | {self.status} : {self.title}"
@@ -112,7 +112,7 @@ class Report(models.Model):
 class FixRecord(models.Model):
     id = models.AutoField(primary_key=True)
     report = models.ForeignKey("Report", on_delete=models.CASCADE)
-    developer = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, related_name="fix_records")
+    developer = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, blank=True, related_name="fix_records")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -122,7 +122,7 @@ class FixRecord(models.Model):
 class ReopenRecord(models.Model):
     id = models.AutoField(primary_key=True)
     report = models.ForeignKey("Report", on_delete=models.CASCADE)
-    fixed_by = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, related_name="reopen_records")
+    fixed_by = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, blank=True, related_name="reopen_records")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -132,7 +132,7 @@ class ReopenRecord(models.Model):
 class Comment(models.Model):
     id = models.AutoField(primary_key=True)
     report = models.ForeignKey("Report", on_delete=models.CASCADE)
-    employee = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True) # Null iff employee is deleted
+    employee = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, blank=True) # Null iff employee is deleted
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 

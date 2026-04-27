@@ -17,15 +17,12 @@ def set_default_tenant():
     tenant_name = os.getenv("DEFAULT_TENANT_NAME", "default")
     domain_name = os.getenv("DEFAULT_TENANT_DOMAIN", "localhost")
 
-    tenant, created = Tenant.objects.get_or_create(
+    tenant, created = Tenant.objects.update_or_create(
         schema_name=schema_name,
         defaults={"name": tenant_name},
     )
-    if not created and tenant.name != tenant_name:
-        tenant.name = tenant_name
-        tenant.save(update_fields=["name"])
 
-    Domain.objects.get_or_create(
+    Domain.objects.update_or_create(
         domain=domain_name,
         defaults={"tenant": tenant, "is_primary": True},
     )

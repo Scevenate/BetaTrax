@@ -1,4 +1,4 @@
-from .models import *
+from .models import Employee, EmployeeRole, Product, Report, ReportAction, ReportSeverity, ReportPriority, ReportStatus, FixRecord, ReopenRecord, Comment
 from django.contrib.auth import authenticate, login, logout
 from django.core.paginator import Paginator, EmptyPage
 from django.forms.models import model_to_dict
